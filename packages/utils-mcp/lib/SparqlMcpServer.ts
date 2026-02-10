@@ -189,6 +189,8 @@ export class SparqlMcpServer {
         streamingHint: true,
         readOnlyHint: true,
       },
+      // Type assertion is needed because we dynamically construct the parameters object
+      // based on whether default sources are provided. The runtime behavior is type-safe.
       execute: (args, context) => this.executeQuerySparql(<any>args, context),
     });
 

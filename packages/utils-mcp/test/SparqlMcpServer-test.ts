@@ -1071,6 +1071,36 @@ describe('SparqlMcpServer', () => {
         httpTimeout: 5000,
       }));
     });
+
+    it('should handle default sources without type prefix', async() => {
+      mockAddTool.mockClear();
+      toolExecuteCallbacks = [];
+
+      // Create server with default sources without type prefix
+      const serverWithPlainSources = new SparqlMcpServer(
+        'http',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+        [ 'http://example.org/', 'https://example.com/data' ],
+      );
+
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      const plainSourcesCallback = toolExecuteCallbacks[0];
+      await plainSourcesCallback({ query: 'SELECT *' }, ctx);
+
+      expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', expect.objectContaining({
+        sources: [
+          { value: 'http://example.org/' },
+          { value: 'https://example.com/data' },
+        ],
+      }));
+    });
   });
 
   describe('without default sources', () => {
