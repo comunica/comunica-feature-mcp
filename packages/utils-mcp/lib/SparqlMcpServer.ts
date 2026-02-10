@@ -12,6 +12,7 @@ import { z } from 'zod';
 export class SparqlMcpServer {
   private readonly server: FastMCP;
   private readonly stderr: Writable;
+  private readonly defaultSources?: IQuerySourceUnidentifiedExpanded[];
   private queryId = 0;
 
   public constructor(
@@ -20,12 +21,18 @@ export class SparqlMcpServer {
     private readonly queryEngine: QueryEngineBase,
     version: string,
     stderr: Writable,
+    defaultSources?: string[],
   ) {
     this.stderr = stderr;
     this.server = new FastMCP({
       name: 'sparql-mcp',
       version: <any> version,
     });
+
+    // Parse default sources if provided
+    if (defaultSources && defaultSources.length > 0) {
+      this.defaultSources = defaultSources.map(source => this.parseSourceString(source));
+    }
 
     this.registerTools();
   }
@@ -39,6 +46,9 @@ export class SparqlMcpServer {
         transportType: 'stdio',
       });
       this.stderr.write(`SPARQL MCP Server running in stdio mode\n`);
+      if (this.defaultSources) {
+        this.stderr.write(`Default sources: ${this.defaultSources.map(s => s.value).join(', ')}\n`);
+      }
     } else {
       await this.server.start({
         transportType: 'httpStream',
@@ -48,6 +58,9 @@ export class SparqlMcpServer {
         },
       });
       this.stderr.write(`SPARQL MCP Server listening on port ${this.port}\n`);
+      if (this.defaultSources) {
+        this.stderr.write(`Default sources: ${this.defaultSources.map(s => s.value).join(', ')}\n`);
+      }
     }
   }
 
@@ -138,25 +151,47 @@ export class SparqlMcpServer {
         ),
     };
 
+    // Build description for query_sparql tool
+    let querySparqlDescription = `Execute a SPARQL query over one or more sources. When sending a SELECT query, results are serialized as 'application/sparql-results+json', CONSTRUCT and DESCRIBE results are in 'application/trig', and ASK queries return true or false. Update queries (INSERT/DELETE) can also be passed, which in most cases will only work on private Knowledge Graphs or by passing authentication.`;
+
+    if (this.defaultSources) {
+      // If default sources are provided, mention them in the description
+      const sourceList = this.defaultSources.map(s => s.value).join(', ');
+      querySparqlDescription += ` Default sources: ${sourceList}`;
+    }
+
+    // Build parameters for query_sparql tool
+    const querySparqlParams: any = {
+      query: z.string().describe('SPARQL query string'),
+    };
+
+    // Only add sources parameter if no default sources are provided
+    if (!this.defaultSources) {
+      querySparqlParams.sources = z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) file paths. You can optionally force a source type by prefixing the URL with a type annotation (e.g., 'sparql@https://example.org/sparql', 'file@/path/to/file.ttl', 'hypermedia@https://example.org/'). This is useful when the source type is already known to avoid auto-detection overhead.`);
+    }
+
+    // Add common parameters
+    Object.assign(querySparqlParams, {
+      ...queryFormatParams,
+      baseIRI: z.string().optional().describe('Base IRI for resolving relative IRIs in the query'),
+      httpProxy: z.string().optional().describe('HTTP proxy URL (e.g., http://proxy.example.com:8080)'),
+      httpAuth: z.string().optional().describe('HTTP basic authentication in the format username:password'),
+      httpTimeout: z.number().optional().describe('HTTP request timeout in milliseconds'),
+      httpRetryCount: z.number().optional().describe('Number of HTTP request retries on failure'),
+    });
+
     this.server.addTool({
       name: 'query_sparql',
-      description: `Execute a SPARQL query over one or more sources. When sending a SELECT query, results are serialized as 'application/sparql-results+json', CONSTRUCT and DESCRIBE results are in 'application/trig', and ASK queries return true or false. Update queries (INSERT/DELETE) can also be passed, which in most cases will only work on private Knowledge Graphs or by passing authentication.`,
-      parameters: z.object({
-        query: z.string().describe('SPARQL query string'),
-        sources: z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) file paths. You can optionally force a source type by prefixing the URL with a type annotation (e.g., 'sparql@https://example.org/sparql', 'file@/path/to/file.ttl', 'hypermedia@https://example.org/'). This is useful when the source type is already known to avoid auto-detection overhead.`),
-        ...queryFormatParams,
-        baseIRI: z.string().optional().describe('Base IRI for resolving relative IRIs in the query'),
-        httpProxy: z.string().optional().describe('HTTP proxy URL (e.g., http://proxy.example.com:8080)'),
-        httpAuth: z.string().optional().describe('HTTP basic authentication in the format username:password'),
-        httpTimeout: z.number().optional().describe('HTTP request timeout in milliseconds'),
-        httpRetryCount: z.number().optional().describe('Number of HTTP request retries on failure'),
-      }),
+      description: querySparqlDescription,
+      parameters: z.object(querySparqlParams),
       annotations: {
         // Signals this tool uses streaming
         streamingHint: true,
         readOnlyHint: true,
       },
-      execute: (args, context) => this.executeQuerySparql(args, context),
+      // Type assertion is needed because we dynamically construct the parameters object
+      // based on whether default sources are provided. The runtime behavior is type-safe.
+      execute: (args, context) => this.executeQuerySparql(<any>args, context),
     });
 
     this.server.addTool({
@@ -236,7 +271,7 @@ export class SparqlMcpServer {
   protected async executeQuerySparql(
     args: {
       query: string;
-      sources: string[];
+      sources?: string[];
       queryFormatLanguage?: string;
       queryFormatVersion?: string;
       baseIRI?: string;
@@ -249,15 +284,22 @@ export class SparqlMcpServer {
   ): Promise<any> {
     const currentQueryId = this.queryId++;
 
-    // Parse sources to extract type annotations
-    const parsedSources = args.sources.map(sourceString => this.parseSourceString(sourceString));
+    // Use default sources if provided, otherwise use sources from args
+    let parsedSources: IQuerySourceUnidentifiedExpanded[];
+    if (this.defaultSources) {
+      parsedSources = this.defaultSources;
+    } else if (args.sources) {
+      parsedSources = args.sources.map(sourceString => this.parseSourceString(sourceString));
+    } else {
+      throw new Error('No sources provided and no default sources configured');
+    }
 
     // Build query context from optional parameters
     const queryContext = this.buildQueryContext(args);
 
     // Log query start
     this.stderr.write(`[Query ${currentQueryId}] Starting SPARQL query\n`);
-    this.stderr.write(`[Query ${currentQueryId}] Sources: ${args.sources.join(', ')}\n`);
+    this.stderr.write(`[Query ${currentQueryId}] Sources: ${parsedSources.map(s => s.value).join(', ')}\n`);
     this.stderr.write(`[Query ${currentQueryId}] Query: ${args.query}\n`);
 
     return this.executeQuery(args.query, parsedSources, currentQueryId, context, queryContext);
