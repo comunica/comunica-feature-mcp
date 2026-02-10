@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-process-exit */
 import type { QueryEngineBase } from '@comunica/actor-init-query';
-import type { Session } from '@rubensworks/solid-client-authn-isomorphic';
 import { SparqlMcpServer } from '@comunica/utils-mcp';
+import type { Session } from '@rubensworks/solid-client-authn-isomorphic';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
@@ -60,64 +60,63 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
     }
 
     // Add session to query engine context if authenticated
+    let wrappedQueryEngine = queryEngine;
     if (session) {
+      // Create a wrapper that adds the session to all query contexts
+      wrappedQueryEngine = Object.create(queryEngine);
       const originalQuery = queryEngine.query.bind(queryEngine);
-      queryEngine.query = function(query: string, context?: any): any {
-        const contextWithAuth = {
-          ...context,
-          '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-        };
-        return originalQuery(query, contextWithAuth);
-      };
-
       const originalQueryBindings = queryEngine.queryBindings.bind(queryEngine);
-      queryEngine.queryBindings = function(query: string, context?: any): any {
-        const contextWithAuth = {
-          ...context,
-          '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-        };
-        return originalQueryBindings(query, contextWithAuth);
-      };
-
       const originalQueryQuads = queryEngine.queryQuads.bind(queryEngine);
-      queryEngine.queryQuads = function(query: string, context?: any): any {
-        const contextWithAuth = {
-          ...context,
-          '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-        };
-        return originalQueryQuads(query, contextWithAuth);
-      };
-
       const originalQueryBoolean = queryEngine.queryBoolean.bind(queryEngine);
-      queryEngine.queryBoolean = function(query: string, context?: any): any {
-        const contextWithAuth = {
+      const originalQueryVoid = queryEngine.queryVoid.bind(queryEngine);
+
+      wrappedQueryEngine.query = function(query: any, context?: any): any {
+        return originalQuery(query, {
           ...context,
           '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-        };
-        return originalQueryBoolean(query, contextWithAuth);
+        });
       };
 
-      const originalQueryVoid = queryEngine.queryVoid.bind(queryEngine);
-      queryEngine.queryVoid = function(query: string, context?: any): any {
-        const contextWithAuth = {
+      wrappedQueryEngine.queryBindings = function(query: any, context?: any): any {
+        return originalQueryBindings(query, {
           ...context,
           '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-        };
-        return originalQueryVoid(query, contextWithAuth);
+        });
+      };
+
+      wrappedQueryEngine.queryQuads = function(query: any, context?: any): any {
+        return originalQueryQuads(query, {
+          ...context,
+          '@comunica/actor-http-inrupt-solid-client-authn:session': session,
+        });
+      };
+
+      wrappedQueryEngine.queryBoolean = function(query: any, context?: any): any {
+        return originalQueryBoolean(query, {
+          ...context,
+          '@comunica/actor-http-inrupt-solid-client-authn:session': session,
+        });
+      };
+
+      wrappedQueryEngine.queryVoid = function(query: any, context?: any): any {
+        return originalQueryVoid(query, {
+          ...context,
+          '@comunica/actor-http-inrupt-solid-client-authn:session': session,
+        });
       };
     }
 
     const server = new SparqlMcpServer(
       'http',
       argv.port,
-      queryEngine,
+      wrappedQueryEngine,
       version,
       process.stderr,
       defaultSources,
     );
 
     // Handle graceful shutdown
-    const cleanup = async() => {
+    const cleanup = async(): Promise<void> => {
       if (session) {
         try {
           await session.logout();
@@ -128,22 +127,20 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
       }
     };
 
-    process.on('SIGINT', async() => {
-      await cleanup();
-      process.exit(0);
+    process.on('SIGINT', () => {
+      cleanup().then(() => process.exit(0)).catch(() => process.exit(1));
     });
 
-    process.on('SIGTERM', async() => {
-      await cleanup();
-      process.exit(0);
+    process.on('SIGTERM', () => {
+      cleanup().then(() => process.exit(0)).catch(() => process.exit(1));
     });
 
-    server.start().catch((error) => {
+    await server.start().catch((error) => {
       process.stderr.write(`Server error: ${error.message}\n`);
       if (error.stack) {
         process.stderr.write(`${error.stack}\n`);
       }
-      cleanup().finally(() => process.exit(1));
+      return cleanup().finally(() => process.exit(1));
     });
   })().catch((error) => {
     process.stderr.write(`Initialization error: ${error.message}\n`);

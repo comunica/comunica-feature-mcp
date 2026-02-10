@@ -54,7 +54,7 @@
     "build:ts": "node \"../../node_modules/typescript/bin/tsc\""
   },
   "dependencies": {
-    "@comunica/query-sparql-solid": "^5.1.3",
+    "@comunica/query-sparql-solid": "^5.0.1",
     "@comunica/utils-mcp": "^5.1.3",
     "@rubensworks/solid-client-authn-isomorphic": "^2.0.0",
     "solid-node-interactive-auth": "^1.0.2",
