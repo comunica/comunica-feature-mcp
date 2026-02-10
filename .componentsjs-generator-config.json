@@ -1,0 +1,9 @@
+{
+  "source": "lib",
+  "ignorePackagePaths": [
+    "engines/mcp-sparql",
+    "engines/mcp-sparql-file"
+  ],
+  "ignoreComponents": [],
+  "modulePrefix": {}
+}

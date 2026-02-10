@@ -1,0 +1,18 @@
+{
+  "extends": [
+    "github>rubensworks/renovate-presets:js"
+  ],
+  "rangeStrategy": "replace",
+  "packageRules": [
+    {
+      "matchSourceUrlPrefixes": ["https://github.com/comunica/comunica"],
+      "groupName": "Comunica monorepo packages",
+      "rangeStrategy": "bump",
+      "automerge": true,
+      "stabilityDays": 0,
+      "schedule": null,
+      "prConcurrentLimit": 0,
+      "branchConcurrentLimit": 0
+    }
+  ]
+}
