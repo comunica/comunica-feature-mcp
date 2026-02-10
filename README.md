@@ -22,6 +22,10 @@ Concretely, this monorepo exposes the following MCP servers:
 
 * [Comunica MCP SPARQL](https://github.com/comunica/comunica-feature-mcp/tree/master/engines/mcp-sparql): An MCP server for SPARQL querying over decentralized RDF knowledge graphs on the Web.
 * [Comunica MCP SPARQL File](https://github.com/comunica/comunica-feature-mcp/tree/master/engines/mcp-sparql-file): An MCP server for SPARQL querying over local RDF files.
+* [Comunica MCP SPARQL HDT](https://github.com/comunica/comunica-feature-mcp/tree/master/engines/mcp-sparql-hdt): An MCP server for SPARQL querying over HDT files.
+* [Comunica MCP SPARQL Link Traversal](https://github.com/comunica/comunica-feature-mcp/tree/master/engines/mcp-sparql-link-traversal): An MCP server for SPARQL querying with link traversal capabilities.
+* [Comunica MCP SPARQL Solid](https://github.com/comunica/comunica-feature-mcp/tree/master/engines/mcp-sparql-solid): An MCP server for SPARQL querying over Solid data pods with authentication.
+* [Comunica MCP SPARQL Link Traversal Solid](https://github.com/comunica/comunica-feature-mcp/tree/master/engines/mcp-sparql-link-traversal-solid): An MCP server for SPARQL querying over Solid data pods with link traversal and authentication.
 
 [Click here to learn more about Comunica MCP, or to see live examples](https://comunica.dev/docs/query/advanced/mcp/).
 

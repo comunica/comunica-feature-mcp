@@ -1,10 +1,15 @@
 /* eslint-disable unicorn/no-process-exit */
 import type { QueryEngineBase } from '@comunica/actor-init-query';
+import type { QueryStringContext } from '@comunica/types';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { SparqlMcpServer } from './SparqlMcpServer';
 
-export function runCli(queryEngine: QueryEngineBase, version: string): void {
+export function runCli(
+  queryEngine: QueryEngineBase,
+  version: string,
+  customContext?: Partial<QueryStringContext>,
+): void {
   (async() => {
     const argv = await yargs(hideBin(process.argv))
       .usage('Usage: $0 [options] [sources...]')
@@ -39,6 +44,7 @@ export function runCli(queryEngine: QueryEngineBase, version: string): void {
       version,
       process.stderr,
       defaultSources,
+      customContext,
     );
     server.start().catch((error) => {
       process.stderr.write(`Server error: ${error.message}\n`);

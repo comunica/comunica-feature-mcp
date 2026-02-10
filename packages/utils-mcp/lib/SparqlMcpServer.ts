@@ -13,6 +13,7 @@ export class SparqlMcpServer {
   private readonly server: FastMCP;
   private readonly stderr: Writable;
   private readonly defaultSources?: IQuerySourceUnidentifiedExpanded[];
+  private readonly customContext?: Partial<QueryStringContext>;
   private queryId = 0;
 
   public constructor(
@@ -22,6 +23,7 @@ export class SparqlMcpServer {
     version: string,
     stderr: Writable,
     defaultSources?: string[],
+    customContext?: Partial<QueryStringContext>,
   ) {
     this.stderr = stderr;
     this.server = new FastMCP({
@@ -33,6 +35,9 @@ export class SparqlMcpServer {
     if (defaultSources && defaultSources.length > 0) {
       this.defaultSources = defaultSources.map(source => this.parseSourceString(source));
     }
+
+    // Store custom context to be merged with query context
+    this.customContext = customContext;
 
     this.registerTools();
   }
@@ -236,7 +241,9 @@ export class SparqlMcpServer {
     try {
       const promises: Promise<any>[] = [];
       const chunks: string[] = [];
-      const queryResult = await this.queryEngine.query(query, { sources, ...queryContext });
+      // Merge custom context with provided query context
+      const mergedContext = { sources, ...this.customContext, ...queryContext };
+      const queryResult = await this.queryEngine.query(query, mergedContext);
       const { data } = await this.queryEngine.resultToString(queryResult);
       data.on('data', (chunk: string) => {
         chunks.push(chunk);
