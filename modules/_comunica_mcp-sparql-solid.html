@@ -1,0 +1,140 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>@comunica/mcp-sparql-solid - v5.1.3 | Comunica MCP</title><meta name="description" content="Documentation for Comunica MCP"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar"><div class="tsd-toolbar-contents container"><a href="../index.html" class="title">Comunica MCP</a><div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/><ul role="listbox" id="tsd-search-results"></ul><div id="tsd-search-status" aria-live="polite" aria-atomic="true"><div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header><div class="container container-main"><div class="col-content"><div class="tsd-page-title"><ul class="tsd-breadcrumb" aria-label="Breadcrumb"><li><a href="" aria-current="page">@comunica/mcp-sparql-solid</a></li></ul><h1>Module @comunica/mcp-sparql-solid - v5.1.3</h1></div><section class="tsd-panel tsd-typography"><h1 id="comunica-mcp-sparql-solid" class="tsd-anchor-link">Comunica MCP SPARQL Solid<a href="#comunica-mcp-sparql-solid" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h1>
+<p><a href="https://www.npmjs.com/package/@comunica/mcp-sparql-solid"><img src="https://badge.fury.io/js/%40comunica%2Fmcp-sparql-solid.svg" alt="npm version"></a></p>
+<p>Comunica MCP SPARQL Solid is an <a href="https://modelcontextprotocol.io/">MCP server</a> for allowing AI agents to execute SPARQL queries over <a href="https://solidproject.org/">Solid</a> data pods with authentication support.</p>
+<p>Solid (Social Linked Data) is a specification for decentralized data storage and personal data management. This MCP server enables authenticated access to private Solid pods.</p>
+<p>It's main distinguishing features are the following:</p>
+<ul>
+<li>Improves the accuracy of your AI agent's answers by leveraging the power of SPARQL and Knowledge Graphs.</li>
+<li>Execute <a href="https://www.w3.org/TR/sparql12-query/">SPARQL 1.2</a> queries over Solid data pods.</li>
+<li>Interactive authentication with Solid identity providers.</li>
+<li>Access both public and private Solid resources.</li>
+<li>Query over federated Solid pods with single sign-on.</li>
+</ul>
+<p><strong><a href="https://comunica.dev/">Learn more about Comunica on our website</a>.</strong></p>
+<p><em>Internally, this is a <a href="https://comunica.dev/">Comunica module</a> that is configured with modules to execute SPARQL queries over Solid pods through MCP.</em></p>
+<h2 id="supported-by" class="tsd-anchor-link">Supported by<a href="#supported-by" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Comunica is a community-driven project, sustained by the <a href="https://comunica.dev/association/">Comunica Association</a>.
+If you are using Comunica, <a href="https://opencollective.com/comunica-association">becoming a sponsor or member</a> is a way to make Comunica sustainable in the long-term.</p>
+<p>Our top sponsors are shown below!</p>
+<p><a href="https://opencollective.com/comunica-association/sponsor/0/website" target="_blank"><img src="https://opencollective.com/comunica-association/sponsor/0/avatar.svg"></a>
+<a href="https://opencollective.com/comunica-association/sponsor/1/website" target="_blank"><img src="https://opencollective.com/comunica-association/sponsor/1/avatar.svg"></a>
+<a href="https://opencollective.com/comunica-association/sponsor/2/website" target="_blank"><img src="https://opencollective.com/comunica-association/sponsor/2/avatar.svg"></a>
+<a href="https://opencollective.com/comunica-association/sponsor/3/website" target="_blank"><img src="https://opencollective.com/comunica-association/sponsor/3/avatar.svg"></a></p>
+<h2 id="usage-examples" class="tsd-anchor-link">Usage examples<a href="#usage-examples" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>After connecting this MCP server to your AI agent (see some examples on how to do this below),
+your agent can SPARQL query Solid data pods, including private resources.</p>
+<p>For example, use it to ask:</p>
+<blockquote>
+<p>Use Comunica SPARQL Solid to query my personal Solid pod and find all my contacts.</p>
+</blockquote>
+<h3 id="prompt-suggestions" class="tsd-anchor-link">Prompt suggestions<a href="#prompt-suggestions" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>If you want your agent to always use SPARQL for higher accuracy in answers, you can tell it the following:</p>
+<blockquote>
+<p>When looking up data from Solid pods, always prefer using SPARQL queries as this is more precise.
+Solid pods may contain private data that requires authentication, so make sure to use the authenticated query engine.
+Since SPARQL queries can take a while to execute, start producing an approximate answer yourself and show it to me if the SPARQL query takes more than 1 second, but then make the answer more concrete based on the SPARQL query once it finalized, as it will be more accurate.</p>
+</blockquote>
+<h2 id="installation" class="tsd-anchor-link">Installation<a href="#installation" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Comunica requires <a href="http://nodejs.org/">Node.JS</a> 14.0 or higher and is tested on OSX and Linux.</p>
+<p>The easiest way to install the client is by installing it from NPM as follows:</p>
+<pre><code class="bash"><span class="hl-0">$</span><span class="hl-1"> [sudo] npm install -g @comunica/mcp-sparql-solid</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Alternatively, you can install from the latest GitHub sources.
+For this, please refer to the README of the <a href="https://github.com/comunica/comunica">Comunica monorepo</a>.
+If you do so, the following examples require replacing <code>comunica-mcp-sparql-solid</code> with <code>node engines/mcp-sparql-solid/bin/mcp.js</code>.</p>
+<h2 id="important-http-mode-only" class="tsd-anchor-link">Important: HTTP Mode Only<a href="#important-http-mode-only" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p><strong>Note:</strong> Due to the interactive nature of Solid authentication, this MCP server only supports HTTP mode. Stdio mode is not available as it cannot handle the interactive login flow required for Solid authentication.</p>
+<h2 id="connect-this-mcp-server-to-your-agent" class="tsd-anchor-link">Connect this MCP server to your agent<a href="#connect-this-mcp-server-to-your-agent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Below, a non-exhaustive list of examples is given to connect this MCP server to your agent.</p>
+<h3 id="claude-desktop" class="tsd-anchor-link">Claude Desktop<a href="#claude-desktop" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>After installing, you need to run the MCP server in HTTP mode:</p>
+<h4 id="http-mode-with-authentication" class="tsd-anchor-link">HTTP Mode with Authentication<a href="#http-mode-with-authentication" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>First, start the server manually:</p>
+<pre><code class="bash"><span class="hl-0">$</span><span class="hl-1"> </span><span class="hl-3">comunica-mcp-sparql-solid</span><span class="hl-1"> </span><span class="hl-4">--mode</span><span class="hl-1"> </span><span class="hl-3">http</span><span class="hl-1"> </span><span class="hl-4">--port</span><span class="hl-1"> </span><span class="hl-5">3123</span>
+</code><button type="button">Copy</button></pre>
+
+<p>This will prompt you to authenticate with your Solid identity provider. Follow the interactive login instructions in your terminal.</p>
+<p>Then, add the following entry to your <code>claude_desktop_config.json</code>:</p>
+<pre><code class="json"><span class="hl-1">{</span><br/><span class="hl-1">  </span><span class="hl-2">&quot;mcpServers&quot;</span><span class="hl-1">: {</span><br/><span class="hl-1">    </span><span class="hl-2">&quot;comunica-sparql-solid&quot;</span><span class="hl-1">: {</span><br/><span class="hl-1">      </span><span class="hl-2">&quot;command&quot;</span><span class="hl-1">: </span><span class="hl-3">&quot;npx&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">      </span><span class="hl-2">&quot;args&quot;</span><span class="hl-1">: [</span><br/><span class="hl-1">        </span><span class="hl-3">&quot;-y&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">        </span><span class="hl-3">&quot;mcp-remote&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">        </span><span class="hl-3">&quot;http://localhost:3123/mcp&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">        </span><span class="hl-3">&quot;--allow-http&quot;</span><br/><span class="hl-1">      ]</span><br/><span class="hl-1">    }</span><br/><span class="hl-1">  }</span><br/><span class="hl-1">}</span>
+</code><button type="button">Copy</button></pre>
+
+<h4 id="custom-identity-provider" class="tsd-anchor-link">Custom Identity Provider<a href="#custom-identity-provider" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>You can specify a custom Solid identity provider using the <code>--idp</code> flag:</p>
+<pre><code class="bash"><span class="hl-0">$</span><span class="hl-1"> </span><span class="hl-3">comunica-mcp-sparql-solid</span><span class="hl-1"> </span><span class="hl-4">--mode</span><span class="hl-1"> </span><span class="hl-3">http</span><span class="hl-1"> </span><span class="hl-4">--port</span><span class="hl-1"> </span><span class="hl-5">3123</span><span class="hl-1"> </span><span class="hl-4">--idp</span><span class="hl-1"> </span><span class="hl-3">https://login.inrupt.com/</span>
+</code><button type="button">Copy</button></pre>
+
+<h4 id="disable-authentication" class="tsd-anchor-link">Disable Authentication<a href="#disable-authentication" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>If you only need to query public Solid resources, you can disable authentication:</p>
+<pre><code class="bash"><span class="hl-0">$</span><span class="hl-1"> </span><span class="hl-3">comunica-mcp-sparql-solid</span><span class="hl-1"> </span><span class="hl-4">--mode</span><span class="hl-1"> </span><span class="hl-3">http</span><span class="hl-1"> </span><span class="hl-4">--port</span><span class="hl-1"> </span><span class="hl-5">3123</span><span class="hl-1"> </span><span class="hl-4">--idp</span><span class="hl-1"> </span><span class="hl-3">void</span>
+</code><button type="button">Copy</button></pre>
+
+<h4 id="default-sources" class="tsd-anchor-link">Default Sources<a href="#default-sources" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>You can optionally configure default Solid pod URLs when starting the MCP server:</p>
+<pre><code class="bash"><span class="hl-0">$</span><span class="hl-1"> </span><span class="hl-3">comunica-mcp-sparql-solid</span><span class="hl-1"> </span><span class="hl-4">--mode</span><span class="hl-1"> </span><span class="hl-3">http</span><span class="hl-1"> </span><span class="hl-4">--port</span><span class="hl-1"> </span><span class="hl-5">3123</span><span class="hl-1"> </span><span class="hl-3">https://example.solidcommunity.net/profile/card</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="claude-code" class="tsd-anchor-link">Claude Code<a href="#claude-code" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<h4 id="http-mode" class="tsd-anchor-link">HTTP Mode<a href="#http-mode" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Run the MCP server in HTTP mode, which requires starting the server manually first:</p>
+<pre><code class="bash"><span class="hl-0">$</span><span class="hl-1"> </span><span class="hl-3">comunica-mcp-sparql-solid</span><span class="hl-1"> </span><span class="hl-4">--mode</span><span class="hl-1"> </span><span class="hl-3">http</span><span class="hl-1"> </span><span class="hl-4">--port</span><span class="hl-1"> </span><span class="hl-5">3123</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Then add it to Claude Code:</p>
+<pre><code class="bash"><span class="hl-0">claude</span><span class="hl-1"> </span><span class="hl-3">mcp</span><span class="hl-1"> </span><span class="hl-3">add</span><span class="hl-1"> </span><span class="hl-4">--transport</span><span class="hl-1"> </span><span class="hl-3">http</span><span class="hl-1"> </span><span class="hl-3">sparql-solid</span><span class="hl-1"> </span><span class="hl-3">http://localhost:3123/mcp</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Learn more in the <a href="https://code.claude.com/docs/en/mcp">Claude Code MCP docs</a>.</p>
+<h3 id="chatgpt" class="tsd-anchor-link">ChatGPT<a href="#chatgpt" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>At the time of writing, ChatGPT only supports HTTP-based MCP servers.
+So you'll need to run this tool under HTTP mode and expose it to the public Web,
+possibly combined with a reverse proxy and/or OAuth layer.</p>
+<pre><code class="bash"><span class="hl-0">$</span><span class="hl-1"> </span><span class="hl-3">comunica-mcp-sparql-solid</span><span class="hl-1"> </span><span class="hl-4">--mode</span><span class="hl-1"> </span><span class="hl-3">http</span><span class="hl-1"> </span><span class="hl-4">--port</span><span class="hl-1"> </span><span class="hl-5">3123</span>
+</code><button type="button">Copy</button></pre>
+
+<h2 id="available-tools" class="tsd-anchor-link">Available Tools<a href="#available-tools" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>This MCP server provides the following tools:</p>
+<h3 id="query_sparql" class="tsd-anchor-link">query_sparql<a href="#query_sparql" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Execute SPARQL queries over one or more Solid pods or SPARQL endpoints, which also includes update queries.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>query</code> (required): SPARQL query string</li>
+<li><code>sources</code> (required, unless default sources are configured): List of Solid pod URLs or SPARQL endpoint URLs</li>
+<li><code>queryFormatLanguage</code> (optional): Query language (e.g., <code>sparql</code>, <code>graphql</code>). Allows you to specify alternative query languages supported by Comunica</li>
+<li><code>queryFormatVersion</code> (optional): Query language version (e.g., <code>1.0</code>, <code>1.1</code>, <code>1.2</code>). Specifies the version of the query language to use</li>
+<li><code>baseIRI</code> (optional): Base IRI for resolving relative IRIs in the query</li>
+<li><code>httpProxy</code> (optional): HTTP proxy URL (e.g., <code>http://proxy.example.com:8080</code>)</li>
+<li><code>httpAuth</code> (optional): HTTP basic authentication in the format <code>username:password</code></li>
+<li><code>httpTimeout</code> (optional): HTTP request timeout in milliseconds</li>
+<li><code>httpRetryCount</code> (optional): Number of HTTP request retries on failure</li>
+</ul>
+<p><strong>Note:</strong> When the MCP server is started with default sources, the <code>sources</code> parameter is not available, and all queries automatically use the configured default sources.</p>
+<h3 id="query_sparql_rdf" class="tsd-anchor-link">query_sparql_rdf<a href="#query_sparql_rdf" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Execute SPARQL queries over a serialized RDF dataset provided as a string (useful for querying Turtle, N-Triples, or other RDF formats directly).</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>query</code> (required): SPARQL query string</li>
+<li><code>value</code> (required): Serialized RDF dataset as a string</li>
+<li><code>mediaType</code> (required): Media type of the serialized RDF dataset (e.g., <code>text/turtle</code>, <code>application/n-triples</code>, <code>application/ld+json</code>)</li>
+<li><code>fileBaseIRI</code> (optional): Base IRI for resolving relative IRIs in the RDF dataset</li>
+<li><code>baseIRI</code> (optional): Base IRI for resolving relative IRIs in the query</li>
+<li><code>queryFormatLanguage</code> (optional): Query language (e.g., <code>sparql</code>, <code>graphql</code>). Allows you to specify alternative query languages supported by Comunica</li>
+<li><code>queryFormatVersion</code> (optional): Query language version (e.g., <code>1.0</code>, <code>1.1</code>, <code>1.2</code>). Specifies the version of the query language to use</li>
+</ul>
+<h2 id="authentication-flow" class="tsd-anchor-link">Authentication Flow<a href="#authentication-flow" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>When you start the MCP server with authentication enabled (default), you will be prompted to:</p>
+<ol>
+<li>Visit a URL in your web browser</li>
+<li>Log in to your Solid identity provider</li>
+<li>Authorize the application</li>
+<li>The server will automatically receive the authentication token</li>
+</ol>
+<p>Once authenticated, all queries will be executed with your Solid credentials, allowing access to private resources.</p>
+<h2 id="learn-more" class="tsd-anchor-link">Learn more<a href="#learn-more" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>This README just shows the tip of the iceberg!
+Learn more about Comunica's functionalities in the following guides:</p>
+<ul>
+<li><em><a href="https://comunica.dev/docs/"><em>Full documentation</em></a></em></li>
+<li><em><a href="https://solidproject.org/"><em>Solid documentation</em></a></em></li>
+</ul>
+</section><details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Functions"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg><h2>Functions</h2></summary><dl class="tsd-member-summaries"><dt class="tsd-member-summary" id="runclisolid"><span class="tsd-member-summary-name"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Function"><use href="../assets/icons.svg#icon-64"></use></svg><a href="../functions/_comunica_mcp-sparql-solid.runCliSolid.html">runCliSolid</a><a href="#runclisolid" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></span></dt><dd class="tsd-member-summary"></dd></dl></details></div><div class="col-sidebar"><div class="page-menu"><div class="tsd-navigation settings"><details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg><h3>Settings</h3></summary><div class="tsd-accordion-details"><div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span><ul id="tsd-filter-options"><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div><div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div><details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg><h3>On This Page</h3></summary><div class="tsd-accordion-details"><a href="#comunica-mcp-sparql-solid"><span>Comunica <wbr/>MCP <wbr/>SPARQL <wbr/>Solid</span></a><ul><li><a href="#supported-by"><span>Supported by</span></a></li><li><a href="#usage-examples"><span>Usage examples</span></a></li><li><ul><li><a href="#prompt-suggestions"><span>Prompt suggestions</span></a></li></ul></li><li><a href="#installation"><span>Installation</span></a></li><li><a href="#important-http-mode-only"><span>Important: <wbr/>HTTP <wbr/>Mode <wbr/>Only</span></a></li><li><a href="#connect-this-mcp-server-to-your-agent"><span>Connect this <wbr/>MCP server to your agent</span></a></li><li><ul><li><a href="#claude-desktop"><span>Claude <wbr/>Desktop</span></a></li><li><ul><li><a href="#http-mode-with-authentication"><span>HTTP <wbr/>Mode with <wbr/>Authentication</span></a></li><li><a href="#custom-identity-provider"><span>Custom <wbr/>Identity <wbr/>Provider</span></a></li><li><a href="#disable-authentication"><span>Disable <wbr/>Authentication</span></a></li><li><a href="#default-sources"><span>Default <wbr/>Sources</span></a></li></ul></li><li><a href="#claude-code"><span>Claude <wbr/>Code</span></a></li><li><ul><li><a href="#http-mode"><span>HTTP <wbr/>Mode</span></a></li></ul></li><li><a href="#chatgpt"><span>Chat<wbr/>GPT</span></a></li></ul></li><li><a href="#available-tools"><span>Available <wbr/>Tools</span></a></li><li><ul><li><a href="#query_sparql"><span>query_<wbr/>sparql</span></a></li><li><a href="#query_sparql_rdf"><span>query_<wbr/>sparql_<wbr/>rdf</span></a></li></ul></li><li><a href="#authentication-flow"><span>Authentication <wbr/>Flow</span></a></li><li><a href="#learn-more"><span>Learn more</span></a></li></ul><details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Functions"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Functions</summary><div><a href="#runclisolid"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Function"><use href="../assets/icons.svg#icon-64"></use></svg><span>run<wbr/>Cli<wbr/>Solid</span></a></div></details></div></details></div><div class="site-menu"><nav class="tsd-navigation"><a href="../index.html">Comunica MCP</a><ul class="tsd-small-nested-navigation" id="tsd-nav-container"><li>Loading...</li></ul></nav></div></div></div><footer><p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer><div class="overlay"></div></body></html>
