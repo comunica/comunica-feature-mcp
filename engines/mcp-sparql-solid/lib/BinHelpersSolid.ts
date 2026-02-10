@@ -59,70 +59,19 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
       }
     }
 
-    // Add session to query engine context if authenticated
-    let wrappedQueryEngine = queryEngine;
-    if (session) {
-      // Create a proxy that intercepts query methods and adds the session to context
-      const originalQuery = queryEngine.query.bind(queryEngine);
-      const originalQueryBindings = queryEngine.queryBindings.bind(queryEngine);
-      const originalQueryQuads = queryEngine.queryQuads.bind(queryEngine);
-      const originalQueryBoolean = queryEngine.queryBoolean.bind(queryEngine);
-      const originalQueryVoid = queryEngine.queryVoid.bind(queryEngine);
-
-      wrappedQueryEngine = new Proxy(queryEngine, {
-        get(target, prop) {
-          if (prop === 'query') {
-            return function(query: any, context?: any): any {
-              return originalQuery(query, {
-                ...context,
-                '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-              });
-            };
-          }
-          if (prop === 'queryBindings') {
-            return function(query: any, context?: any): any {
-              return originalQueryBindings(query, {
-                ...context,
-                '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-              });
-            };
-          }
-          if (prop === 'queryQuads') {
-            return function(query: any, context?: any): any {
-              return originalQueryQuads(query, {
-                ...context,
-                '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-              });
-            };
-          }
-          if (prop === 'queryBoolean') {
-            return function(query: any, context?: any): any {
-              return originalQueryBoolean(query, {
-                ...context,
-                '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-              });
-            };
-          }
-          if (prop === 'queryVoid') {
-            return function(query: any, context?: any): any {
-              return originalQueryVoid(query, {
-                ...context,
-                '@comunica/actor-http-inrupt-solid-client-authn:session': session,
-              });
-            };
-          }
-          return Reflect.get(target, prop);
-        },
-      });
-    }
+    // Prepare custom context with Solid session if authenticated
+    const customContext = session ?
+        { '@comunica/actor-http-inrupt-solid-client-authn:session': session } :
+      undefined;
 
     const server = new SparqlMcpServer(
       'http',
       argv.port,
-      wrappedQueryEngine,
+      queryEngine,
       version,
       process.stderr,
       defaultSources,
+      customContext,
     );
 
     // Handle graceful shutdown
