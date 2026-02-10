@@ -24,6 +24,7 @@ export class SparqlMcpServer {
     stderr: Writable,
     defaultSources?: string[],
     customContext?: Partial<QueryStringContext>,
+    additionalSourcesDescription?: string,
   ) {
     this.stderr = stderr;
     this.server = new FastMCP({
@@ -39,7 +40,7 @@ export class SparqlMcpServer {
     // Store custom context to be merged with query context
     this.customContext = customContext;
 
-    this.registerTools();
+    this.registerTools(additionalSourcesDescription);
   }
 
   /**
@@ -141,7 +142,7 @@ export class SparqlMcpServer {
     return context;
   }
 
-  protected registerTools(): void {
+  protected registerTools(additionalSourcesDescription?: string): void {
     // Common query format parameters shared between tools
     const queryFormatParams = {
       queryFormatLanguage: z.string().optional()
@@ -172,7 +173,7 @@ export class SparqlMcpServer {
 
     // Only add sources parameter if no default sources are provided
     if (!this.defaultSources) {
-      querySparqlParams.sources = z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) file paths. You can optionally force a source type by prefixing the URL with a type annotation (e.g., 'sparql@https://example.org/sparql', 'file@/path/to/file.ttl', 'hypermedia@https://example.org/'). This is useful when the source type is already known to avoid auto-detection overhead.`);
+      querySparqlParams.sources = z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) file paths. You can optionally force a source type by prefixing the URL with a type annotation (e.g., 'sparql@https://example.org/sparql', 'file@/path/to/file.ttl', 'hypermedia@https://example.org/'). This is useful when the source type is already known to avoid auto-detection overhead.${additionalSourcesDescription ?? ''}`);
     }
 
     // Add common parameters

@@ -72,6 +72,7 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
       process.stderr,
       defaultSources,
       customContext,
+      ` If you want to query the WebID or pod of the user, you can pass the URL ${session?.info.webId}.`,
     );
 
     // Handle graceful shutdown
