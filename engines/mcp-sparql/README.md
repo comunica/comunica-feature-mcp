@@ -140,6 +140,48 @@ Then, you can ask Claude something like the following:
 
 > Use Comunica SPARQL to determine what movies both Brad Pitt and Leonardo DiCaprio both play in.
 
+#### Default Sources
+
+You can optionally configure default sources when starting the MCP server. When default sources are provided, the `sources` parameter is hidden from the tools, and all queries automatically use the configured sources.
+
+This is useful when you want to restrict queries to specific Knowledge Graphs or avoid having the AI agent select sources on its own.
+
+**Stdio Mode with Default Sources:**
+
+```json
+{
+  "mcpServers": {
+    "comunica-sparql": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@comunica/mcp-sparql",
+        "--mode",
+        "stdio",
+        "https://dbpedia.org/sparql",
+        "https://query.wikidata.org/sparql"
+      ]
+    }
+  }
+}
+```
+
+**HTTP Mode with Default Sources:**
+
+```bash
+$ comunica-mcp-sparql --mode http --port 3123 https://dbpedia.org/sparql https://query.wikidata.org/sparql
+```
+
+**Source Type Prefixes:**
+
+You can optionally force a source type by prefixing the URL with a type annotation, following the same syntax as the [Comunica CLI](https://comunica.dev/docs/query/getting_started/query_cli/):
+
+```bash
+$ comunica-mcp-sparql --mode stdio sparql@https://dbpedia.org/sparql file@/path/to/data.ttl hypermedia@https://fragments.dbpedia.org/2016-04/en
+```
+
+This is useful when the source type is already known to avoid auto-detection overhead.
+
 ### Claude Code
 
 #### Stdio Mode (Recommended for Claude Code)
@@ -185,7 +227,7 @@ Execute SPARQL queries over one or more remote sources (SPARQL endpoints, TPF in
 
 **Parameters:**
 - `query` (required): SPARQL query string
-- `sources` (required): List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) file paths
+- `sources` (required, unless default sources are configured): List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) file paths
 - `queryFormatLanguage` (optional): Query language (e.g., `sparql`, `graphql`). Allows you to specify alternative query languages supported by Comunica
 - `queryFormatVersion` (optional): Query language version (e.g., `1.0`, `1.1`, `1.2`). Specifies the version of the query language to use
 - `baseIRI` (optional): Base IRI for resolving relative IRIs in the query
@@ -193,6 +235,8 @@ Execute SPARQL queries over one or more remote sources (SPARQL endpoints, TPF in
 - `httpAuth` (optional): HTTP basic authentication in the format `username:password`
 - `httpTimeout` (optional): HTTP request timeout in milliseconds
 - `httpRetryCount` (optional): Number of HTTP request retries on failure
+
+**Note:** When the MCP server is started with default sources, the `sources` parameter is not available, and all queries automatically use the configured default sources.
 
 ### query_sparql_rdf
 
