@@ -910,4 +910,243 @@ describe('SparqlMcpServer', () => {
       }));
     });
   });
+
+  describe('with default sources', () => {
+    let serverWithDefaults: SparqlMcpServer;
+    let ctx: Context<FastMCPSessionAuth>;
+    let toolExecuteCallback: any;
+
+    beforeEach(() => {
+      // Reset mocks
+      mockAddTool.mockClear();
+      mockStart.mockClear();
+      mockQueryEngine.query.mockClear();
+      mockQueryEngine.resultToString.mockClear();
+      toolExecuteCallbacks = [];
+
+      // Create a mock stderr stream
+      stderrWrites = [];
+      mockStderr = new Writable({
+        write(chunk: any, encoding: any, callback: any) {
+          stderrWrites.push(chunk.toString());
+          callback();
+        },
+      });
+
+      // Create server with default sources
+      serverWithDefaults = new SparqlMcpServer(
+        'http',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+        [ 'http://default.org/sparql', 'file@/path/to/data.ttl' ],
+      );
+
+      ctx = <any> {
+        streamContent: jest.fn(),
+      };
+      // The first tool registered is query_sparql
+      toolExecuteCallback = toolExecuteCallbacks[0];
+    });
+
+    it('should log default sources on start', async() => {
+      await serverWithDefaults.start();
+
+      const logOutput = stderrWrites.join('');
+      expect(logOutput).toContain('Default sources: http://default.org/sparql, /path/to/data.ttl');
+    });
+
+    it('should log default sources on start in stdio mode', async() => {
+      // Create a new server in stdio mode with default sources
+      mockAddTool.mockClear();
+      mockStart.mockClear();
+      toolExecuteCallbacks = [];
+
+      const stdioServerWithDefaults = new SparqlMcpServer(
+        'stdio',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+        [ 'http://stdio.org/sparql' ],
+      );
+
+      stderrWrites = [];
+      await stdioServerWithDefaults.start();
+
+      const logOutput = stderrWrites.join('');
+      expect(logOutput).toContain('SPARQL MCP Server running in stdio mode');
+      expect(logOutput).toContain('Default sources: http://stdio.org/sparql');
+    });
+
+    it('should register query_sparql tool without sources parameter', () => {
+      const querySparqlCall = mockAddTool.mock.calls.find((call: any) => call[0].name === 'query_sparql');
+      expect(querySparqlCall).toBeDefined();
+
+      // Get the parameters schema
+      const paramsSchema = querySparqlCall[0].parameters;
+      const schemaShape = paramsSchema.shape;
+
+      // Verify that sources parameter is not present
+      expect(schemaShape.sources).toBeUndefined();
+      // Verify that query parameter is present
+      expect(schemaShape.query).toBeDefined();
+    });
+
+    it('should mention default sources in tool description', () => {
+      const querySparqlCall = mockAddTool.mock.calls.find((call: any) => call[0].name === 'query_sparql');
+      expect(querySparqlCall).toBeDefined();
+
+      const description = querySparqlCall[0].description;
+      expect(description).toContain('Default sources: http://default.org/sparql, /path/to/data.ttl');
+    });
+
+    it('should use default sources when executing query', async() => {
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      // Execute query without providing sources parameter
+      await toolExecuteCallback({ query: 'SELECT * WHERE { ?s ?p ?o }' }, ctx);
+
+      expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        sources: [
+          { value: 'http://default.org/sparql' },
+          { value: '/path/to/data.ttl', type: 'file' },
+        ],
+      });
+    });
+
+    it('should parse type prefixes in default sources', async() => {
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      await toolExecuteCallback({ query: 'SELECT *' }, ctx);
+
+      const callArgs = mockQueryEngine.query.mock.calls[0];
+      expect(callArgs[1].sources).toEqual([
+        { value: 'http://default.org/sparql' },
+        { value: '/path/to/data.ttl', type: 'file' },
+      ]);
+    });
+
+    it('should log default sources when executing query', async() => {
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      stderrWrites = [];
+      await toolExecuteCallback({ query: 'SELECT * WHERE { ?s ?p ?o }' }, ctx);
+
+      const logOutput = stderrWrites.join('');
+      expect(logOutput).toContain('[Query 0] Sources: http://default.org/sparql, /path/to/data.ttl');
+    });
+
+    it('should handle query with optional parameters and default sources', async() => {
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      await toolExecuteCallback(
+        {
+          query: 'SELECT *',
+          baseIRI: 'http://base.org/',
+          httpTimeout: 5000,
+        },
+        ctx,
+      );
+
+      expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', expect.objectContaining({
+        sources: [
+          { value: 'http://default.org/sparql' },
+          { value: '/path/to/data.ttl', type: 'file' },
+        ],
+        baseIRI: 'http://base.org/',
+        httpTimeout: 5000,
+      }));
+    });
+  });
+
+  describe('without default sources', () => {
+    let ctx: Context<FastMCPSessionAuth>;
+    let toolExecuteCallback: any;
+
+    beforeEach(() => {
+      // Reset mocks
+      mockAddTool.mockClear();
+      mockStart.mockClear();
+      mockQueryEngine.query.mockClear();
+      mockQueryEngine.resultToString.mockClear();
+      toolExecuteCallbacks = [];
+
+      // Create a mock stderr stream
+      stderrWrites = [];
+      mockStderr = new Writable({
+        write(chunk: any, encoding: any, callback: any) {
+          stderrWrites.push(chunk.toString());
+          callback();
+        },
+      });
+
+      // Create server without default sources
+      const serverWithoutDefaults = new SparqlMcpServer(
+        'stdio',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+      );
+
+      ctx = <any> {
+        streamContent: jest.fn(),
+      };
+      // The first tool registered is query_sparql
+      toolExecuteCallback = toolExecuteCallbacks[0];
+    });
+
+    it('should throw error when no sources provided and no default sources configured', async() => {
+      await expect(toolExecuteCallback({ query: 'SELECT *' }, ctx))
+        .rejects.toThrow('No sources provided and no default sources configured');
+    });
+
+    it('should not log default sources on start', async() => {
+      const serverWithoutDefaults = new SparqlMcpServer(
+        'stdio',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+      );
+
+      stderrWrites = [];
+      await serverWithoutDefaults.start();
+
+      const logOutput = stderrWrites.join('');
+      expect(logOutput).not.toContain('Default sources:');
+      expect(logOutput).toContain('SPARQL MCP Server running in stdio mode');
+    });
+
+    it('should not log default sources on start in http mode', async() => {
+      const serverWithoutDefaults = new SparqlMcpServer(
+        'http',
+        3123,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+      );
+
+      stderrWrites = [];
+      await serverWithoutDefaults.start();
+
+      const logOutput = stderrWrites.join('');
+      expect(logOutput).not.toContain('Default sources:');
+      expect(logOutput).toContain('SPARQL MCP Server listening on port 3123');
+    });
+  });
 });
