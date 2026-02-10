@@ -104,6 +104,10 @@ Then, add the following entry to your `claude_desktop_config.json`:
 }
 ```
 
+Then, you can ask Claude something like the following:
+
+> Using Comunica SPARQL Solid, can you show me information about myself and my friends?
+
 #### Custom Identity Provider
 
 You can specify a custom Solid identity provider using the `--idp` flag:
