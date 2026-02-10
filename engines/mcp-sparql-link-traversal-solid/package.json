@@ -1,0 +1,67 @@
+{
+  "name": "@comunica/mcp-sparql-link-traversal-solid",
+  "version": "5.1.3",
+  "description": "An MCP server for executing SPARQL queries with link traversal over Solid data pods with authentication support",
+  "license": "MIT",
+  "funding": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/comunica-association"
+  },
+  "homepage": "https://comunica.dev/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/comunica/comunica-feature-mcp.git",
+    "directory": "engines/mcp-sparql-link-traversal-solid"
+  },
+  "bugs": {
+    "url": "https://github.com/comunica/comunica-feature-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "agentic",
+    "comunica",
+    "sparql",
+    "solid",
+    "link-traversal",
+    "authentication",
+    "engine",
+    "query",
+    "update",
+    "sparql engine",
+    "sparql query",
+    "sparql update",
+    "sparql 1.1",
+    "sparql 1.2"
+  ],
+  "sideEffects": false,
+  "main": "lib/index.js",
+  "typings": "lib/index",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "comunica-mcp-sparql-link-traversal-solid": "bin/mcp.js"
+  },
+  "files": [
+    "bin/**/*.d.ts",
+    "bin/**/*.js",
+    "bin/**/*.js.map",
+    "lib/**/*.d.ts",
+    "lib/**/*.js",
+    "lib/**/*.js.map"
+  ],
+  "scripts": {
+    "build": "yarn run build:ts",
+    "build:ts": "node \"../../node_modules/typescript/bin/tsc\""
+  },
+  "dependencies": {
+    "@comunica/query-sparql-link-traversal-solid": "^5.1.3",
+    "@comunica/utils-mcp": "^5.1.3",
+    "@rubensworks/solid-client-authn-isomorphic": "^2.0.0",
+    "solid-node-interactive-auth": "^1.0.2",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/yargs": "^17.0.0"
+  }
+}
