@@ -1,6 +1,6 @@
 {
   "name": "@comunica/mcp-sparql-link-traversal-solid",
-  "version": "5.1.3",
+  "version": "1.0.0",
   "description": "An MCP server for executing SPARQL queries with link traversal over Solid data pods with authentication support",
   "license": "MIT",
   "funding": {
@@ -50,7 +50,7 @@
     "build:ts": "node \"../../node_modules/typescript/bin/tsc\""
   },
   "dependencies": {
-    "@comunica/mcp-sparql-solid": "^5.1.3",
+    "@comunica/mcp-sparql-solid": "^1.0.0",
     "@comunica/query-sparql-link-traversal-solid": "^0.8.0"
   }
 }

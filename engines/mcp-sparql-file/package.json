@@ -1,6 +1,6 @@
 {
   "name": "@comunica/mcp-sparql-file",
-  "version": "5.1.3",
+  "version": "1.0.0",
   "description": "An MCP server for executing SPARQL queries over local and remote RDF files",
   "license": "MIT",
   "funding": {
@@ -54,6 +54,6 @@
   },
   "dependencies": {
     "@comunica/query-sparql-file": "^5.1.3",
-    "@comunica/utils-mcp": "^5.1.3"
+    "@comunica/utils-mcp": "^1.0.0"
   }
 }

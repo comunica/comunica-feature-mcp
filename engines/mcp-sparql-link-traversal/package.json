@@ -1,6 +1,6 @@
 {
   "name": "@comunica/mcp-sparql-link-traversal",
-  "version": "5.1.3",
+  "version": "1.0.0",
   "description": "An MCP server for executing SPARQL queries with link traversal capabilities",
   "license": "MIT",
   "funding": {
@@ -55,6 +55,6 @@
   },
   "dependencies": {
     "@comunica/query-sparql-link-traversal": "^0.8.0",
-    "@comunica/utils-mcp": "^5.1.3"
+    "@comunica/utils-mcp": "^1.0.0"
   }
 }

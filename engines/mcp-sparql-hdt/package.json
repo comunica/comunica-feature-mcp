@@ -1,6 +1,6 @@
 {
   "name": "@comunica/mcp-sparql-hdt",
-  "version": "5.1.3",
+  "version": "1.0.0",
   "description": "An MCP server for executing SPARQL queries over HDT files",
   "license": "MIT",
   "funding": {
@@ -54,6 +54,6 @@
   },
   "dependencies": {
     "@comunica/query-sparql-hdt": "^5.0.0",
-    "@comunica/utils-mcp": "^5.1.3"
+    "@comunica/utils-mcp": "^1.0.0"
   }
 }
