@@ -51,11 +51,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract version from tag
+      - name: Extract version from tag or lerna.json
         id: extract_version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=1.0.0" >> $GITHUB_OUTPUT
+            echo "version=$(jq -r '.version' lerna.json)" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           fi

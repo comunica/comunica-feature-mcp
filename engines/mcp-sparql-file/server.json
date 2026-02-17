@@ -5,7 +5,8 @@
   "version": "1.0.0",
   "repository": {
     "type": "github",
-    "url": "https://github.com/comunica/comunica-feature-mcp"
+    "url": "https://github.com/comunica/comunica-feature-mcp",
+    "subfolder": "engines/mcp-sparql-file"
   },
   "website": "https://comunica.dev/",
   "registry": {
