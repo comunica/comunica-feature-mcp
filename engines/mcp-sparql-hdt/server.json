@@ -1,0 +1,18 @@
+{
+  "$schema": "https://registry.modelcontextprotocol.io/docs/reference/server-json/server.schema.json",
+  "name": "io.github.comunica/mcp-sparql-hdt",
+  "description": "An MCP server for executing SPARQL queries over HDT files",
+  "version": "1.0.0",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/comunica/comunica-feature-mcp"
+  },
+  "website": "https://comunica.dev/",
+  "registry": {
+    "type": "npm",
+    "package": "@comunica/mcp-sparql-hdt"
+  },
+  "transport": {
+    "type": "stdio"
+  }
+}

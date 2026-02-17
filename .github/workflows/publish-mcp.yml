@@ -1,0 +1,182 @@
+name: "Publish MCP Servers"
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish-mcp-sparql:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish MCP SPARQL to MCP Registry
+        uses: OtherVibes/mcp-publish-action@v1
+        with:
+          name: io.github.comunica/mcp-sparql
+          description: "An MCP server for executing SPARQL queries over decentralized RDF knowledge graphs on the Web"
+          version: ${{ steps.extract_version.outputs.version }}
+          registry_type: npm
+          identifier: "@comunica/mcp-sparql"
+          transport_type: stdio
+          website_url: https://comunica.dev/
+
+  publish-mcp-sparql-file:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish MCP SPARQL File to MCP Registry
+        uses: OtherVibes/mcp-publish-action@v1
+        with:
+          name: io.github.comunica/mcp-sparql-file
+          description: "An MCP server for executing SPARQL queries over local and remote RDF files"
+          version: ${{ steps.extract_version.outputs.version }}
+          registry_type: npm
+          identifier: "@comunica/mcp-sparql-file"
+          transport_type: stdio
+          website_url: https://comunica.dev/
+
+  publish-mcp-sparql-hdt:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish MCP SPARQL HDT to MCP Registry
+        uses: OtherVibes/mcp-publish-action@v1
+        with:
+          name: io.github.comunica/mcp-sparql-hdt
+          description: "An MCP server for executing SPARQL queries over HDT files"
+          version: ${{ steps.extract_version.outputs.version }}
+          registry_type: npm
+          identifier: "@comunica/mcp-sparql-hdt"
+          transport_type: stdio
+          website_url: https://comunica.dev/
+
+  publish-mcp-sparql-solid:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish MCP SPARQL Solid to MCP Registry
+        uses: OtherVibes/mcp-publish-action@v1
+        with:
+          name: io.github.comunica/mcp-sparql-solid
+          description: "An MCP server for executing SPARQL queries over Solid data pods with authentication support"
+          version: ${{ steps.extract_version.outputs.version }}
+          registry_type: npm
+          identifier: "@comunica/mcp-sparql-solid"
+          transport_type: stdio
+          website_url: https://comunica.dev/
+
+  publish-mcp-sparql-link-traversal:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish MCP SPARQL Link Traversal to MCP Registry
+        uses: OtherVibes/mcp-publish-action@v1
+        with:
+          name: io.github.comunica/mcp-sparql-link-traversal
+          description: "An MCP server for executing SPARQL queries with link traversal capabilities"
+          version: ${{ steps.extract_version.outputs.version }}
+          registry_type: npm
+          identifier: "@comunica/mcp-sparql-link-traversal"
+          transport_type: stdio
+          website_url: https://comunica.dev/
+
+  publish-mcp-sparql-link-traversal-solid:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish MCP SPARQL Link Traversal Solid to MCP Registry
+        uses: OtherVibes/mcp-publish-action@v1
+        with:
+          name: io.github.comunica/mcp-sparql-link-traversal-solid
+          description: "An MCP server for executing SPARQL queries with link traversal over Solid data pods with authentication support"
+          version: ${{ steps.extract_version.outputs.version }}
+          registry_type: npm
+          identifier: "@comunica/mcp-sparql-link-traversal-solid"
+          transport_type: stdio
+          website_url: https://comunica.dev/

@@ -1,6 +1,7 @@
 {
   "name": "@comunica/mcp-sparql-link-traversal-solid",
   "version": "1.0.0",
+  "mcpName": "io.github.comunica/mcp-sparql-link-traversal-solid",
   "description": "An MCP server for executing SPARQL queries with link traversal over Solid data pods with authentication support",
   "license": "MIT",
   "funding": {

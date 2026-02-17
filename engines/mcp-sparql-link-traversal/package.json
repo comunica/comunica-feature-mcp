@@ -1,6 +1,7 @@
 {
   "name": "@comunica/mcp-sparql-link-traversal",
   "version": "1.0.0",
+  "mcpName": "io.github.comunica/mcp-sparql-link-traversal",
   "description": "An MCP server for executing SPARQL queries with link traversal capabilities",
   "license": "MIT",
   "funding": {
