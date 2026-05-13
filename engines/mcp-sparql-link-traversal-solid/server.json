@@ -1,6 +1,6 @@
 {
   "$schema": "https://registry.modelcontextprotocol.io/docs/reference/server-json/server.schema.json",
-  "name": "io.github.comunica/mcp-sparql-link-traversal-solid",
+  "name": "dev.comunica/mcp-sparql-link-traversal-solid",
   "description": "An MCP server for executing SPARQL queries with link traversal over Solid data pods with authentication support",
   "version": "1.0.0",
   "repository": {

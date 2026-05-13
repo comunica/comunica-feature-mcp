@@ -1,6 +1,6 @@
 {
   "$schema": "https://registry.modelcontextprotocol.io/docs/reference/server-json/server.schema.json",
-  "name": "io.github.comunica/mcp-sparql-link-traversal",
+  "name": "dev.comunica/mcp-sparql-link-traversal",
   "description": "An MCP server for executing SPARQL queries with link traversal capabilities",
   "version": "1.0.0",
   "repository": {

@@ -1,7 +1,7 @@
 {
   "name": "@comunica/mcp-sparql-solid",
   "version": "1.0.0",
-  "mcpName": "io.github.comunica/mcp-sparql-solid",
+  "mcpName": "dev.comunica/mcp-sparql-solid",
   "description": "An MCP server for executing SPARQL queries over Solid data pods with authentication support",
   "license": "MIT",
   "funding": {

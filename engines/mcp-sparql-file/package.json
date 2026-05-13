@@ -1,7 +1,7 @@
 {
   "name": "@comunica/mcp-sparql-file",
   "version": "1.0.0",
-  "mcpName": "io.github.comunica/mcp-sparql-file",
+  "mcpName": "dev.comunica/mcp-sparql-file",
   "description": "An MCP server for executing SPARQL queries over local and remote RDF files",
   "license": "MIT",
   "funding": {

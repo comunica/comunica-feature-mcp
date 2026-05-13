@@ -1,6 +1,6 @@
 {
   "$schema": "https://registry.modelcontextprotocol.io/docs/reference/server-json/server.schema.json",
-  "name": "io.github.comunica/mcp-sparql",
+  "name": "dev.comunica/mcp-sparql",
   "description": "An MCP server for executing SPARQL queries over decentralized RDF knowledge graphs on the Web",
   "version": "1.0.0",
   "repository": {

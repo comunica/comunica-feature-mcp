@@ -1,7 +1,7 @@
 {
   "name": "@comunica/mcp-sparql-hdt",
   "version": "1.0.0",
-  "mcpName": "io.github.comunica/mcp-sparql-hdt",
+  "mcpName": "dev.comunica/mcp-sparql-hdt",
   "description": "An MCP server for executing SPARQL queries over HDT files",
   "license": "MIT",
   "funding": {

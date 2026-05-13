@@ -63,7 +63,7 @@ jobs:
       - name: Publish ${{ matrix.server.name }} to MCP Registry
         uses: OtherVibes/mcp-publish-action@6a14dde3f1a2093b72f437ba93205a320ae60952
         with:
-          name: io.github.comunica/${{ matrix.server.name }}
+          name: dev.comunica/${{ matrix.server.name }}
           description: ${{ matrix.server.description }}
           version: ${{ steps.extract_version.outputs.version }}
           registry_type: npm
