@@ -53,7 +53,7 @@
     "build:ts": "node \"../../node_modules/typescript/bin/tsc\""
   },
   "dependencies": {
-    "@comunica/query-sparql-hdt": "^5.0.0",
+    "@comunica/query-sparql-hdt": "^5.0.1",
     "@comunica/utils-mcp": "^1.0.0"
   }
 }
