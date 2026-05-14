@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="v1.0.1"></a>
+## [v1.0.1](https://github.com/comunica/comunica-feature-mcp/compare/v1.0.0...v1.0.1) - 2026-05-14
+
+### Fixed
+* [Bump HDT version to add Node 26 support](https://github.com/comunica/comunica-feature-mcp/commit/b81716514d676cf3e98f98968e1f3ad7a5ba83c4)
+
 <a name="v1.0.0"></a>
 ## [v1.0.0] - 2026-02-11
 
