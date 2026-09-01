@@ -199,9 +199,12 @@ $ comunica-mcp-sparql-hdt --mode http --port 3123 --timeout 300000
 ```
 
 Comunica offers no way to abort a query that is already running,
-so a timed out query would keep consuming CPU and memory in the background.
+so a timed out query can keep consuming CPU and memory in the background.
 In http mode, queries are therefore executed inside worker processes that are supervised by a primary process,
-which allows such workers to be replaced by a fresh one after a timeout.
+which allows such workers to be replaced by a fresh one.
+A worker is only replaced when it is measurably still busy a few seconds after the timeout,
+so that queries that timed out while waiting on a slow source do not disturb other clients.
+Clients that do get disconnected by a replacement can simply retry their request.
 This also makes the server recover from queries that block the event loop entirely,
 which would otherwise make the server unreachable forever.
 
@@ -216,6 +219,17 @@ In stdio mode, the server always runs as a single process, since worker processe
 standard input stream, and replacing a worker would invalidate the MCP session of the connected client.
 Queries are still aborted after `--timeout` milliseconds there, but their resources are only reclaimed
 once the query terminates by itself.
+
+## Query metadata
+
+Every successful query is answered with the results, followed by a single line of metadata:
+
+```
+Query metadata: {"resultType":"bindings","results":3,"empty":false,"elapsedMs":412,"sources":["https://dbpedia.org/sparql"]}
+```
+
+This lets agents tell an empty result apart from a failed query, and shows which sources were queried.
+Note that federated queries can return incomplete results without an error when one of the sources is unavailable.
 
 ## Available Tools
 

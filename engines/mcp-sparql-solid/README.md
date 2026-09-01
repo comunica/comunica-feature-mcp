@@ -173,6 +173,17 @@ so a timed out query keeps consuming CPU and memory until it terminates by itsel
 Contrary to the other Comunica MCP servers, this server does not execute queries inside replaceable worker
 processes, as every new worker would require the user to interactively log in again.
 
+## Query metadata
+
+Every successful query is answered with the results, followed by a single line of metadata:
+
+```
+Query metadata: {"resultType":"bindings","results":3,"empty":false,"elapsedMs":412,"sources":["https://dbpedia.org/sparql"]}
+```
+
+This lets agents tell an empty result apart from a failed query, and shows which sources were queried.
+Note that federated queries can return incomplete results without an error when one of the sources is unavailable.
+
 ## Available Tools
 
 This MCP server provides the following tools:
