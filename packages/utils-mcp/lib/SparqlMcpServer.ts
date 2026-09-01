@@ -188,7 +188,7 @@ export class SparqlMcpServer {
 
     // Only add sources parameter if no default sources are provided
     if (!this.defaultSources) {
-      querySparqlParams.sources = z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) file paths. You can optionally force a source type by prefixing the URL with a type annotation (e.g., 'sparql@https://example.org/sparql', 'file@/path/to/file.ttl', 'hypermedia@https://example.org/'). This is useful when the source type is already known to avoid auto-detection overhead.${additionalSourcesDescription ?? ''}`);
+      querySparqlParams.sources = z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) document URLs. The type of each source is detected automatically. Only if you already know the type, you can force it by prefixing the URL with one of exactly these annotations: 'sparql@' for a SPARQL endpoint (e.g. 'sparql@https://example.org/sparql'), 'qpf@' for a Triple Pattern Fragments or Quad Pattern Fragments interface (e.g. 'qpf@https://example.org/fragments'), or 'file@' for a plain RDF document (e.g. 'file@https://example.org/data.ttl'). Any other annotation makes the query fail, so prefer passing the plain URL when in doubt.${additionalSourcesDescription ?? ''}`);
     }
 
     // Add common parameters
@@ -233,6 +233,68 @@ export class SparqlMcpServer {
       },
       execute: (args, context) => this.executeQuerySparqlRdf(args, context),
     });
+  }
+
+  /**
+   * Count the number of newlines within the given string.
+   * @param value The string to count newlines in.
+   * @returns The number of newlines.
+   */
+  protected countNewlines(value: string): number {
+    let count = 0;
+    for (let i = value.indexOf('\n'); i !== -1; i = value.indexOf('\n', i + 1)) {
+      count++;
+    }
+    return count;
+  }
+
+  /**
+   * Describe a query source in a way that is safe to send back to the client.
+   * Sources that carry their data inline are only described by their type,
+   * as echoing a whole dataset back would needlessly consume the context of an agent.
+   * @param source The source to describe.
+   * @returns A short description of the source.
+   */
+  protected describeSource(source: IQuerySourceUnidentifiedExpanded): string {
+    if (source.type === 'serialized') {
+      return `serialized (${(<IQuerySourceSerialized> source).mediaType})`;
+    }
+    const value = String(source.value);
+    return source.type ? `${source.type}@${value}` : value;
+  }
+
+  /**
+   * Summarize a query result, so that agents can tell an empty result apart from a failed query,
+   * and know which sources the results actually came from.
+   * @param sources The sources the query was executed over.
+   * @param resultType The type of the query result.
+   * @param bytes The number of bytes of the serialized results.
+   * @param newlines The number of newlines within the serialized results.
+   * @param elapsed The query execution time in milliseconds.
+   * @returns A single line describing the results.
+   */
+  protected describeResults(
+    sources: IQuerySourceUnidentifiedExpanded[],
+    resultType: string,
+    bytes: number,
+    newlines: number,
+    elapsed: number,
+  ): string {
+    const summary: Record<string, any> = { resultType };
+
+    // Both line-based serializers emit one line per result,
+    // where the bindings serializer additionally wraps them in a JSON array.
+    if (resultType === 'bindings') {
+      summary.results = Math.max(newlines - 2, 0);
+    } else if (resultType === 'quads') {
+      summary.results = newlines;
+    }
+    summary.empty = summary.results === undefined ? bytes === 0 : summary.results === 0;
+    summary.elapsedMs = elapsed;
+    summary.sources = sources.map(source => this.describeSource(source));
+
+    return `Query metadata: ${JSON.stringify(summary)}. Note that results can be incomplete without an error \
+when one of multiple sources is unavailable.`;
   }
 
   /**
@@ -286,29 +348,34 @@ or increasing the timeout of the MCP server.`));
     context: Context<FastMCPSessionAuth>,
     queryContext: Partial<QueryStringContext> = {},
   ): Promise<any> {
-    await context.streamContent({ type: 'text', text: `Streaming SPARQL query results hereafter:` });
-
     // Kept outside of the query execution, so that a timed out query can be cancelled
     let resultStream: Readable | undefined;
+    let resultType = 'unknown';
+    let newlines = 0;
+    const startTime = Date.now();
 
     try {
       const executeInner = async(): Promise<string> => {
-        const promises: Promise<any>[] = [];
         const chunks: string[] = [];
+        // Chained instead of collected, so that memory does not grow with the number of chunks
+        let streamed: Promise<any> = Promise.resolve();
         // Merge custom context with provided query context
         const mergedContext = { sources, ...this.customContext, ...queryContext };
         const queryResult = await this.queryEngine.query(query, mergedContext);
+        resultType = queryResult.resultType ?? resultType;
         const { data } = await this.queryEngine.resultToString(queryResult);
         resultStream = <Readable> data;
         data.on('data', (chunk: string) => {
-          chunks.push(chunk);
-          promises.push(context.streamContent({ type: 'text', text: chunk.toString() }));
+          const text = chunk.toString();
+          chunks.push(text);
+          newlines += this.countNewlines(text);
+          streamed = streamed.then(() => context.streamContent({ type: 'text', text }));
         });
         await new Promise((resolve, reject) => {
           data.on('error', reject);
           data.on('end', resolve);
         });
-        await Promise.all(promises);
+        await streamed;
 
         return chunks.join('');
       };
@@ -317,7 +384,15 @@ or increasing the timeout of the MCP server.`));
       // Log successful completion
       this.stderr.write(`[Query ${queryId}] Successfully completed\n`);
 
-      return results;
+      return {
+        content: [
+          { type: 'text', text: results },
+          {
+            type: 'text',
+            text: this.describeResults(sources, resultType, results.length, newlines, Date.now() - startTime),
+          },
+        ],
+      };
     } catch (error: any) {
       // Make sure that a timed out or failed query stops consuming resources
       resultStream?.destroy();

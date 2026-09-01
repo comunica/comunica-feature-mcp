@@ -192,7 +192,7 @@ describe('SparqlMcpServer', () => {
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
         sources: [{ value: 'http://ex.org' }],
       });
-      expect(result).toBe('RESULT');
+      expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
     });
 
     it('should handle query errors', async() => {
@@ -307,19 +307,19 @@ describe('SparqlMcpServer', () => {
       });
     });
 
-    it('should handle hypermedia type prefix', async() => {
+    it('should handle qpf type prefix', async() => {
       mockQueryEngine.query.mockResolvedValue({});
       mockQueryEngine.resultToString.mockResolvedValue({
         data: Readable.from([ 'RESULT' ]),
       });
 
       await toolExecuteCallback(
-        { query: 'SELECT *', sources: [ 'hypermedia@http://ex.org/fragments' ]},
+        { query: 'SELECT *', sources: [ 'qpf@http://ex.org/fragments' ]},
         ctx,
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
-        sources: [{ value: 'http://ex.org/fragments', type: 'hypermedia' }],
+        sources: [{ value: 'http://ex.org/fragments', type: 'qpf' }],
       });
     });
   });
@@ -350,7 +350,7 @@ describe('SparqlMcpServer', () => {
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
         sources: [{ value: 'http://ex.org' }],
       });
-      expect(result).toBe('RESULT');
+      expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
     });
   });
 
@@ -388,7 +388,7 @@ describe('SparqlMcpServer', () => {
           mediaType: 'text/turtle',
         }],
       });
-      expect(result).toBe('RESULT');
+      expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
     });
 
     it('should execute query with fileBaseIRI parameter', async() => {
@@ -548,14 +548,112 @@ describe('SparqlMcpServer', () => {
         ctx,
       );
 
-      expect(result).toBe('CHUNK1CHUNK2CHUNK3');
-      expect(ctx.streamContent).toHaveBeenCalledWith({
+      expect(result.content[0]).toEqual({ type: 'text', text: 'CHUNK1CHUNK2CHUNK3' });
+      expect(ctx.streamContent).not.toHaveBeenCalledWith({
         type: 'text',
         text: 'Streaming SPARQL query results hereafter:',
       });
       expect(ctx.streamContent).toHaveBeenCalledWith({ type: 'text', text: 'CHUNK1' });
       expect(ctx.streamContent).toHaveBeenCalledWith({ type: 'text', text: 'CHUNK2' });
       expect(ctx.streamContent).toHaveBeenCalledWith({ type: 'text', text: 'CHUNK3' });
+    });
+  });
+
+  describe('result metadata', () => {
+    let ctx: Context<FastMCPSessionAuth>;
+    let toolExecuteCallback: any;
+
+    beforeEach(() => {
+      ctx = <any> { streamContent: jest.fn() };
+      toolExecuteCallback = toolExecuteCallbacks[0];
+    });
+
+    function metadataOf(result: any): any {
+      const text: string = result.content[1].text;
+      return JSON.parse(/Query metadata: (?<json>\{.*\})\./u.exec(text)!.groups!.json);
+    }
+
+    it('should report the number of bindings', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', ',\n{"a":"2"}', '\n]\n' ]),
+      });
+
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(metadataOf(result)).toMatchObject({ resultType: 'bindings', results: 2, empty: false });
+    });
+
+    it('should report an empty bindings result as empty', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data: Readable.from([ '[\n]\n' ]) });
+
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(metadataOf(result)).toMatchObject({ resultType: 'bindings', results: 0, empty: true });
+    });
+
+    it('should report the number of quads', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'quads' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '<a> <b> <c>.\n', '<d> <e> <f>.\n' ]),
+      });
+
+      const result = await toolExecuteCallback({ query: 'CONSTRUCT {} WHERE {}', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(metadataOf(result)).toMatchObject({ resultType: 'quads', results: 2, empty: false });
+    });
+
+    it('should determine emptiness by size for results without a line-based count', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'boolean' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data: Readable.from([ 'true\n' ]) });
+
+      const result = await toolExecuteCallback({ query: 'ASK {}', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(metadataOf(result)).toMatchObject({ resultType: 'boolean', empty: false });
+      expect(metadataOf(result).results).toBeUndefined();
+    });
+
+    it('should report an unknown result type when the engine does not provide one', async() => {
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({ data: Readable.from([ '' ]) });
+
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(metadataOf(result)).toMatchObject({ resultType: 'unknown', empty: true });
+    });
+
+    it('should report the sources that were queried', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data: Readable.from([ '[\n]\n' ]) });
+
+      const result = await toolExecuteCallback(
+        { query: 'SELECT *', sources: [ 'sparql@http://ex.org/sparql', 'http://ex.org/data.ttl' ]},
+        ctx,
+      );
+
+      expect(metadataOf(result).sources).toEqual([ 'sparql@http://ex.org/sparql', 'http://ex.org/data.ttl' ]);
+    });
+
+    it('should not echo inline datasets back to the client', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data: Readable.from([ '[\n]\n' ]) });
+
+      const result = await toolExecuteCallbacks[1](
+        { query: 'SELECT *', value: '<s> <p> "a very long dataset" .', mediaType: 'text/turtle' },
+        ctx,
+      );
+
+      expect(metadataOf(result).sources).toEqual([ 'serialized (text/turtle)' ]);
+    });
+
+    it('should warn that federated results can be incomplete', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data: Readable.from([ '[\n]\n' ]) });
+
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.content[1].text).toContain('results can be incomplete');
     });
   });
 
@@ -575,9 +673,9 @@ describe('SparqlMcpServer', () => {
       expect(result).toEqual({ value: '/path/to/file.ttl', type: 'file' });
     });
 
-    it('should parse hypermedia type prefix', () => {
-      const result = (<any> server).parseSourceString('hypermedia@http://example.org/');
-      expect(result).toEqual({ value: 'http://example.org/', type: 'hypermedia' });
+    it('should parse qpf type prefix', () => {
+      const result = (<any> server).parseSourceString('qpf@http://example.org/');
+      expect(result).toEqual({ value: 'http://example.org/', type: 'qpf' });
     });
 
     it('should handle URLs with colons after prefix', () => {
@@ -1141,7 +1239,8 @@ describe('SparqlMcpServer', () => {
         data: Readable.from([ 'RESULT' ]),
       });
 
-      await expect(execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx)).resolves.toBe('RESULT');
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+      expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
     });
 
     it('should fail queries that exceed the timeout', async() => {
@@ -1204,7 +1303,8 @@ describe('SparqlMcpServer', () => {
       const promise = execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
       await jest.advanceTimersByTimeAsync(60_000);
 
-      await expect(promise).resolves.toBe('RESULT');
+      const result = await promise;
+      expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
     });
 
     it('should not fail when a failing query has no result stream yet', async() => {

@@ -2,10 +2,13 @@ import type { Worker } from 'node:cluster';
 import { EventEmitter } from 'node:events';
 import { Writable } from 'node:stream';
 import {
+  CPU_SAMPLE_WINDOW,
+  exitOnDisconnect,
   HEARTBEAT_INTERVAL,
   MESSAGE_HEARTBEAT,
   MESSAGE_RECYCLE,
   requestRecycle,
+  requestRecycleIfRunaway,
   startHeartbeat,
   WorkerPool,
 } from '../lib/WorkerPool';
@@ -457,5 +460,144 @@ describe('requestRecycle', () => {
 
     expect(requestRecycle()).toBe(false);
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe('exitOnDisconnect', () => {
+  let stderr: Writable;
+  let writes: string[];
+  let exitSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    writes = [];
+    stderr = new Writable({
+      write(chunk: any, encoding: any, callback: any) {
+        writes.push(chunk.toString());
+        callback();
+      },
+    });
+    exitSpy = jest.spyOn(process, 'exit').mockImplementation(<any> jest.fn());
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    exitSpy.mockRestore();
+    process.removeAllListeners('disconnect');
+  });
+
+  it('should terminate the worker after the grace period', () => {
+    exitOnDisconnect(stderr, 1_000);
+
+    process.emit('disconnect');
+    expect(writes.join('')).toContain('was disconnected, shutting down within 1000ms');
+    expect(exitSpy).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(1_000);
+    expect(exitSpy).toHaveBeenCalledWith(0);
+  });
+
+  it('should do nothing until the worker is disconnected', () => {
+    exitOnDisconnect(stderr, 1_000);
+
+    jest.advanceTimersByTime(60_000);
+
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('should use a default grace period', () => {
+    exitOnDisconnect(stderr);
+
+    process.emit('disconnect');
+    jest.advanceTimersByTime(10_000);
+
+    expect(exitSpy).toHaveBeenCalledWith(0);
+  });
+});
+
+describe('requestRecycleIfRunaway', () => {
+  const originalSend = process.send;
+  const originalConnected = process.connected;
+  let stderr: Writable;
+  let writes: string[];
+  let send: jest.Mock;
+  let cpuSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    writes = [];
+    stderr = new Writable({
+      write(chunk: any, encoding: any, callback: any) {
+        writes.push(chunk.toString());
+        callback();
+      },
+    });
+    send = jest.fn().mockReturnValue(true);
+    process.send = <any> send;
+    Object.defineProperty(process, 'connected', { value: true, configurable: true });
+  });
+
+  afterEach(() => {
+    cpuSpy?.mockRestore();
+    process.send = originalSend;
+    Object.defineProperty(process, 'connected', { value: originalConnected, configurable: true });
+  });
+
+  /**
+   * Make the worker report the given fraction of a CPU core over the sample window.
+   * @param fraction The fraction of a CPU core to report.
+   */
+  function mockCpuUsage(fraction: number): void {
+    cpuSpy = jest.spyOn(process, 'cpuUsage').mockImplementation(<any> ((previous?: any) => {
+      if (previous) {
+        // Microseconds of CPU time over the 10ms sample window used within these tests
+        return { user: Math.round(10 * 1_000 * fraction), system: 0 };
+      }
+      return { user: 0, system: 0 };
+    }));
+  }
+
+  it('should ask for a replacement when the worker is still busy', async() => {
+    mockCpuUsage(1);
+
+    await expect(requestRecycleIfRunaway(stderr, 10)).resolves.toBe(true);
+
+    expect(send).toHaveBeenCalledWith(MESSAGE_RECYCLE, undefined, undefined, expect.any(Function));
+    expect(writes.join('')).toContain('is still busy after the timeout');
+  });
+
+  it('should keep an idle worker', async() => {
+    mockCpuUsage(0);
+
+    await expect(requestRecycleIfRunaway(stderr, 10)).resolves.toBe(false);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(writes.join('')).toContain('is idle again after the timeout');
+  });
+
+  it('should keep a worker that is below the threshold', async() => {
+    mockCpuUsage(0.1);
+
+    await expect(requestRecycleIfRunaway(stderr, 10, 0.5)).resolves.toBe(false);
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('should do nothing outside of a cluster worker', async() => {
+    process.send = undefined;
+
+    await expect(requestRecycleIfRunaway(stderr, 10)).resolves.toBe(false);
+
+    expect(writes).toEqual([]);
+  });
+
+  it('should sample over a default window', async() => {
+    mockCpuUsage(0);
+    jest.useFakeTimers();
+
+    const promise = requestRecycleIfRunaway(stderr);
+    await jest.advanceTimersByTimeAsync(CPU_SAMPLE_WINDOW);
+
+    await expect(promise).resolves.toBe(false);
+    jest.useRealTimers();
   });
 });

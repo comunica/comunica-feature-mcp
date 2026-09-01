@@ -2,5 +2,10 @@
 import { QueryEngine } from '@comunica/query-sparql-file';
 import { runCli } from '@comunica/utils-mcp';
 
-// eslint-disable-next-line ts/no-require-imports,ts/no-var-requires,import/extensions
-runCli(() => new QueryEngine(), require('../package.json').version);
+runCli(
+  () => new QueryEngine(),
+  // eslint-disable-next-line ts/no-require-imports,ts/no-var-requires,import/extensions
+  require('../package.json').version,
+  undefined,
+  ` This server can also query local RDF files, by passing their path, optionally prefixed with 'file@'.`,
+);

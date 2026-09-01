@@ -5,7 +5,13 @@ import type { QueryStringContext } from '@comunica/types';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { SparqlMcpServer } from './SparqlMcpServer';
-import { MIN_UNRESPONSIVE_TIMEOUT, requestRecycle, startHeartbeat, WorkerPool } from './WorkerPool';
+import {
+  exitOnDisconnect,
+  MIN_UNRESPONSIVE_TIMEOUT,
+  requestRecycleIfRunaway,
+  startHeartbeat,
+  WorkerPool,
+} from './WorkerPool';
 
 // The cluster module only has a default export, which can not be imported
 // as such within this CommonJS package, so it is required instead.
@@ -18,11 +24,14 @@ const cluster: Cluster = require('node:cluster');
  *                    A factory is preferred, as it avoids initializing an engine inside the primary process.
  * @param version The version of the MCP server.
  * @param customContext An optional query context to apply to all queries.
+ * @param additionalSourcesDescription An optional addition to the description of the sources parameter,
+ *                                     for engines that accept more source types than the default ones.
  */
 export function runCli(
   queryEngine: QueryEngineBase | (() => QueryEngineBase),
   version: string,
   customContext?: Partial<QueryStringContext>,
+  additionalSourcesDescription?: string,
 ): void {
   (async() => {
     const argv = await yargs(hideBin(process.argv))
@@ -81,9 +90,11 @@ export function runCli(
       return;
     }
 
-    // Let the primary process know that this worker is still responsive.
-    // This is a no-op in stdio mode, where there is no primary process.
+    // Let the primary process know that this worker is still responsive,
+    // and make sure this worker never outlives the primary process that manages it.
+    // Both are a no-op in stdio mode, where there is no primary process.
     startHeartbeat();
+    exitOnDisconnect(process.stderr);
 
     // Extract positional arguments as default sources
     const defaultSources: string[] | undefined = argv._.length > 0 ? argv._.map(String) : undefined;
@@ -96,12 +107,18 @@ export function runCli(
       process.stderr,
       defaultSources,
       customContext,
-      undefined,
+      additionalSourcesDescription,
       {
         queryTimeout: argv.timeout,
-        // Comunica can not abort a running query, so the only way to reclaim the resources
-        // of a timed out query is to let the primary process replace this worker.
-        onQueryTimeout: () => requestRecycle(),
+        // Comunica can not abort a running query, so the only way to reclaim the resources of a query
+        // that keeps running after its timeout is to let the primary process replace this worker.
+        // Queries that timed out while waiting on a slow source leave nothing behind,
+        // so those must not disrupt the connections of other clients.
+        onQueryTimeout: () => {
+          requestRecycleIfRunaway(process.stderr).catch((error: Error) => {
+            process.stderr.write(`Could not request a replacement worker: ${error.message}\n`);
+          });
+        },
       },
     );
     server.start().catch((error) => {

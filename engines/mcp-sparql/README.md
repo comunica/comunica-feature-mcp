@@ -177,8 +177,12 @@ $ comunica-mcp-sparql --mode http --port 3123 https://dbpedia.org/sparql https:/
 You can optionally force a source type by prefixing the URL with a type annotation, following the same syntax as the [Comunica CLI](https://comunica.dev/docs/query/getting_started/query_cli/):
 
 ```bash
-$ comunica-mcp-sparql --mode stdio sparql@https://dbpedia.org/sparql file@/path/to/data.ttl hypermedia@https://fragments.dbpedia.org/2016-04/en
+$ comunica-mcp-sparql --mode stdio sparql@https://dbpedia.org/sparql file@https://example.org/data.ttl qpf@https://fragments.dbpedia.org/2016-04/en
 ```
+
+The supported annotations are `sparql@` for a SPARQL endpoint, `qpf@` for a Triple Pattern Fragments or
+Quad Pattern Fragments interface, and `file@` for a plain RDF document.
+Any other annotation makes the query fail, so leave it out whenever the type is not known upfront.
 
 This is useful when the source type is already known to avoid auto-detection overhead.
 
@@ -229,9 +233,12 @@ $ comunica-mcp-sparql --mode http --port 3123 --timeout 300000
 ```
 
 Comunica offers no way to abort a query that is already running,
-so a timed out query would keep consuming CPU and memory in the background.
+so a timed out query can keep consuming CPU and memory in the background.
 In http mode, queries are therefore executed inside worker processes that are supervised by a primary process,
-which allows such workers to be replaced by a fresh one after a timeout.
+which allows such workers to be replaced by a fresh one.
+A worker is only replaced when it is measurably still busy a few seconds after the timeout,
+so that queries that timed out while waiting on a slow source do not disturb other clients.
+Clients that do get disconnected by a replacement can simply retry their request.
 This also makes the server recover from queries that block the event loop entirely,
 which would otherwise make the server unreachable forever.
 
@@ -246,6 +253,17 @@ In stdio mode, the server always runs as a single process, since worker processe
 standard input stream, and replacing a worker would invalidate the MCP session of the connected client.
 Queries are still aborted after `--timeout` milliseconds there, but their resources are only reclaimed
 once the query terminates by itself.
+
+## Query metadata
+
+Every successful query is answered with the results, followed by a single line of metadata:
+
+```
+Query metadata: {"resultType":"bindings","results":3,"empty":false,"elapsedMs":412,"sources":["https://dbpedia.org/sparql"]}
+```
+
+This lets agents tell an empty result apart from a failed query, and shows which sources were queried.
+Note that federated queries can return incomplete results without an error when one of the sources is unavailable.
 
 ## Available Tools
 
