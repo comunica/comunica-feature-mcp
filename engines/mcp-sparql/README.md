@@ -217,6 +217,36 @@ possibly combined with a reverse proxy and/or OAuth layer.
 $ comunica-mcp-sparql --mode http --port 3123
 ```
 
+## Query timeouts
+
+SPARQL queries can take arbitrarily long, for example when they are executed over large or slow sources.
+To make sure that an agent never waits indefinitely, queries are aborted after `--timeout` milliseconds
+(60 seconds by default, `--timeout 0` disables this), after which the agent receives an error
+that invites it to refine its query.
+
+```bash
+$ comunica-mcp-sparql --mode http --port 3123 --timeout 300000
+```
+
+Comunica offers no way to abort a query that is already running,
+so a timed out query would keep consuming CPU and memory in the background.
+In http mode, queries are therefore executed inside worker processes that are supervised by a primary process,
+which allows such workers to be replaced by a fresh one after a timeout.
+This also makes the server recover from queries that block the event loop entirely,
+which would otherwise make the server unreachable forever.
+
+The number of workers can be configured with `--workers`, which also determines
+how many queries can be executed concurrently:
+
+```bash
+$ comunica-mcp-sparql --mode http --port 3123 --workers 4
+```
+
+In stdio mode, the server always runs as a single process, since worker processes can not share a single
+standard input stream, and replacing a worker would invalidate the MCP session of the connected client.
+Queries are still aborted after `--timeout` milliseconds there, but their resources are only reclaimed
+once the query terminates by itself.
+
 ## Available Tools
 
 This MCP server provides the following tools:

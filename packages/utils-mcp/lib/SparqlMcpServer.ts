@@ -1,10 +1,24 @@
 /* eslint-disable import/no-nodejs-modules */
-import type { Writable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
 import type { QueryEngineBase } from '@comunica/actor-init-query';
 import type { IQuerySourceSerialized, IQuerySourceUnidentifiedExpanded, QueryStringContext } from '@comunica/types';
 import type { Context, FastMCPSessionAuth } from 'fastmcp';
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
+
+export interface ISparqlMcpServerOptions {
+  /**
+   * The maximum time in milliseconds a query may take before it is aborted. A value of 0 disables the timeout.
+   *
+   * Note that Comunica offers no way to abort a running query,
+   * so timed out queries keep consuming resources in the background until the process is replaced.
+   */
+  queryTimeout?: number;
+  /**
+   * Invoked when a query exceeded {@link ISparqlMcpServerOptions.queryTimeout}.
+   */
+  onQueryTimeout?: () => void;
+}
 
 /**
  * An MCP server for querying over one or more Knowledge Graphs using SPARQL queries.
@@ -25,6 +39,7 @@ export class SparqlMcpServer {
     defaultSources?: string[],
     customContext?: Partial<QueryStringContext>,
     additionalSourcesDescription?: string,
+    private readonly options: ISparqlMcpServerOptions = {},
   ) {
     this.stderr = stderr;
     this.server = new FastMCP({
@@ -221,6 +236,40 @@ export class SparqlMcpServer {
   }
 
   /**
+   * Reject the given promise if it does not settle within the configured query timeout.
+   *
+   * Note that this can only interrupt queries that leave the event loop free.
+   * Queries that block the event loop are handled by the primary process,
+   * which kills and restarts unresponsive workers.
+   * @param promise The promise wrapping the query execution.
+   * @param queryId The query ID for logging.
+   * @returns The value of the given promise.
+   */
+  protected async withQueryTimeout<T>(promise: Promise<T>, queryId: number): Promise<T> {
+    const queryTimeout = this.options.queryTimeout ?? 0;
+    if (queryTimeout <= 0) {
+      return promise;
+    }
+
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((resolve, reject) => {
+      timer = setTimeout(() => {
+        this.stderr.write(`[Query ${queryId}] Timed out after ${queryTimeout}ms\n`);
+        reject(new Error(`Query timed out after ${queryTimeout}ms. \
+Consider making the query more selective, restricting it to fewer sources, \
+or increasing the timeout of the MCP server.`));
+        this.options.onQueryTimeout?.();
+      }, queryTimeout);
+    });
+
+    try {
+      return await Promise.race([ promise, timeout ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * Execute a SPARQL query and stream the results back to the client.
    * This method contains the common logic for executing queries and handling results.
    * @param query The SPARQL query string
@@ -239,28 +288,40 @@ export class SparqlMcpServer {
   ): Promise<any> {
     await context.streamContent({ type: 'text', text: `Streaming SPARQL query results hereafter:` });
 
+    // Kept outside of the query execution, so that a timed out query can be cancelled
+    let resultStream: Readable | undefined;
+
     try {
-      const promises: Promise<any>[] = [];
-      const chunks: string[] = [];
-      // Merge custom context with provided query context
-      const mergedContext = { sources, ...this.customContext, ...queryContext };
-      const queryResult = await this.queryEngine.query(query, mergedContext);
-      const { data } = await this.queryEngine.resultToString(queryResult);
-      data.on('data', (chunk: string) => {
-        chunks.push(chunk);
-        promises.push(context.streamContent({ type: 'text', text: chunk.toString() }));
-      });
-      await new Promise((resolve, reject) => {
-        data.on('error', reject);
-        data.on('end', resolve);
-      });
-      await Promise.all(promises);
+      const executeInner = async(): Promise<string> => {
+        const promises: Promise<any>[] = [];
+        const chunks: string[] = [];
+        // Merge custom context with provided query context
+        const mergedContext = { sources, ...this.customContext, ...queryContext };
+        const queryResult = await this.queryEngine.query(query, mergedContext);
+        const { data } = await this.queryEngine.resultToString(queryResult);
+        resultStream = <Readable> data;
+        data.on('data', (chunk: string) => {
+          chunks.push(chunk);
+          promises.push(context.streamContent({ type: 'text', text: chunk.toString() }));
+        });
+        await new Promise((resolve, reject) => {
+          data.on('error', reject);
+          data.on('end', resolve);
+        });
+        await Promise.all(promises);
+
+        return chunks.join('');
+      };
+      const results = await this.withQueryTimeout(executeInner(), queryId);
 
       // Log successful completion
       this.stderr.write(`[Query ${queryId}] Successfully completed\n`);
 
-      return chunks.join('');
+      return results;
     } catch (error: any) {
+      // Make sure that a timed out or failed query stops consuming resources
+      resultStream?.destroy();
+
       // Log query failure
       this.stderr.write(`[Query ${queryId}] Failed: ${error.stack}\n`);
 
