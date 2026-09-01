@@ -160,6 +160,22 @@ possibly combined with a reverse proxy and/or OAuth layer.
 $ comunica-mcp-sparql-link-traversal-solid --mode http --port 3123
 ```
 
+## Query timeouts
+
+SPARQL queries can take arbitrarily long, for example when they are executed over large or slow sources.
+To make sure that an agent never waits indefinitely, queries are aborted after `--timeout` milliseconds
+(60 seconds by default, `--timeout 0` disables this), after which the agent receives an error
+that invites it to refine its query.
+
+```bash
+$ comunica-mcp-sparql-link-traversal-solid --mode http --port 3123 --timeout 300000
+```
+
+Note that Comunica offers no way to abort a query that is already running,
+so a timed out query keeps consuming CPU and memory until it terminates by itself.
+Contrary to the other Comunica MCP servers, this server does not execute queries inside replaceable worker
+processes, as every new worker would require the user to interactively log in again.
+
 ## Available Tools
 
 This MCP server provides the following tools:

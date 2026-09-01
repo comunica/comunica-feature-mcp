@@ -1,6 +1,7 @@
 import { Readable, Writable } from 'node:stream';
 import type { QueryEngineBase } from '@comunica/actor-init-query';
 import type { Context, FastMCPSessionAuth } from 'fastmcp';
+import type { ISparqlMcpServerOptions } from '../lib/SparqlMcpServer';
 import { SparqlMcpServer } from '../lib/SparqlMcpServer';
 
 jest.mock('fastmcp');
@@ -1100,6 +1101,120 @@ describe('SparqlMcpServer', () => {
           { value: 'https://example.com/data' },
         ],
       }));
+    });
+  });
+
+  describe('with a query timeout', () => {
+    let ctx: Context<FastMCPSessionAuth>;
+
+    beforeEach(() => {
+      ctx = <any> {
+        streamContent: jest.fn(),
+      };
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    function createServer(options: ISparqlMcpServerOptions): any {
+      toolExecuteCallbacks = [];
+      new SparqlMcpServer(
+        'http',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+        undefined,
+        undefined,
+        undefined,
+        options,
+      );
+      return toolExecuteCallbacks[0];
+    }
+
+    it('should let queries within the timeout complete', async() => {
+      const execute = createServer({ queryTimeout: 1_000 });
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      await expect(execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx)).resolves.toBe('RESULT');
+    });
+
+    it('should fail queries that exceed the timeout', async() => {
+      const execute = createServer({ queryTimeout: 1_000 });
+      const data = new Readable({ read: () => {
+        // Never emit anything, so that the query never ends
+      } });
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({ data });
+
+      const promise = execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+      await jest.advanceTimersByTimeAsync(1_000);
+      const result = await promise;
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Query timed out after 1000ms');
+      expect(stderrWrites.join('')).toContain('[Query 0] Timed out after 1000ms');
+      // The query must be cancelled, so that it stops consuming resources
+      expect(data.destroyed).toBe(true);
+    });
+
+    it('should invoke the timeout callback when the timeout is exceeded', async() => {
+      const onQueryTimeout = jest.fn();
+      const execute = createServer({ queryTimeout: 1_000, onQueryTimeout });
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: new Readable({ read: () => {
+          // Never emit anything, so that the query never ends
+        } }),
+      });
+
+      const promise = execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+      await jest.advanceTimersByTimeAsync(1_000);
+      await promise;
+
+      expect(onQueryTimeout).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not invoke the timeout callback for queries within the timeout', async() => {
+      const onQueryTimeout = jest.fn();
+      const execute = createServer({ queryTimeout: 1_000, onQueryTimeout });
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      expect(onQueryTimeout).not.toHaveBeenCalled();
+    });
+
+    it('should not apply a timeout when it is disabled', async() => {
+      const execute = createServer({ queryTimeout: 0 });
+      mockQueryEngine.query.mockResolvedValue({});
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ 'RESULT' ]),
+      });
+
+      const promise = execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+      await jest.advanceTimersByTimeAsync(60_000);
+
+      await expect(promise).resolves.toBe('RESULT');
+    });
+
+    it('should not fail when a failing query has no result stream yet', async() => {
+      const execute = createServer({ queryTimeout: 1_000 });
+      mockQueryEngine.query.mockRejectedValue(new Error('Query failed'));
+
+      const result = await execute({ query: 'BAD', sources: []}, ctx);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Query failed');
     });
   });
 

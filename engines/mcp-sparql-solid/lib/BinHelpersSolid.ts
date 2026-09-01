@@ -30,10 +30,17 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
         description: 'Solid identity provider to authenticate with (set to \'void\' to disable auth)',
         default: 'https://solidcommunity.net/',
       })
+      .option('timeout', {
+        alias: 't',
+        type: 'number',
+        default: 60_000,
+        description: 'Maximum query execution time in milliseconds (0 to disable)',
+      })
       .example([
         [ '$0 --mode http --port 3000', 'Start MCP server in HTTP mode on port 3000 with default IDP' ],
         [ '$0 --mode http --idp https://solidcommunity.net/', 'Start with a specific identity provider' ],
         [ '$0 --mode http --idp void', 'Start without authentication' ],
+        [ '$0 --mode http --timeout 300000', 'Start with a query timeout of 5 minutes' ],
         [ '$0 --mode http https://example.org/data/', 'Start with a default Solid pod URL' ],
       ])
       .parse();
@@ -64,6 +71,9 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
         { '@comunica/actor-http-inrupt-solid-client-authn:session': session } :
       undefined;
 
+    // Contrary to the non-Solid MCP servers, this server is not run inside worker processes,
+    // as restarting a worker would require the user to interactively log in again.
+    // Queries are therefore only guarded by the (soft) query timeout below.
     const server = new SparqlMcpServer(
       'http',
       argv.port,
@@ -73,6 +83,7 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
       defaultSources,
       customContext,
       ` If you want to query the WebID or pod of the user, you can pass the URL ${session?.info.webId}.`,
+      { queryTimeout: argv.timeout },
     );
 
     // Handle graceful shutdown
