@@ -174,17 +174,18 @@ $ comunica-mcp-sparql --mode http --port 3123 https://dbpedia.org/sparql https:/
 
 **Source Type Prefixes:**
 
-You can optionally force a source type by prefixing the URL with a type annotation, following the same syntax as the [Comunica CLI](https://comunica.dev/docs/query/getting_started/query_cli/):
+Source types are detected automatically from the hypermedia controls of each source,
+so passing plain URLs is all that is needed.
+
+Optionally, a source type can be forced by prefixing the URL with a type annotation,
+following the same syntax as the [Comunica CLI](https://comunica.dev/docs/query/getting_started/query_cli/):
 
 ```bash
 $ comunica-mcp-sparql --mode stdio sparql@https://dbpedia.org/sparql file@https://example.org/data.ttl qpf@https://fragments.dbpedia.org/2016-04/en
 ```
 
-The supported annotations are `sparql@` for a SPARQL endpoint, `qpf@` for a Triple Pattern Fragments or
-Quad Pattern Fragments interface, and `file@` for a plain RDF document.
-Any other annotation makes the query fail, so leave it out whenever the type is not known upfront.
-
-This is useful when the source type is already known to avoid auto-detection overhead.
+This is useful when the source type is already known, as it avoids auto-detection overhead.
+Only use an annotation you are sure about, as an incorrect one makes the query fail.
 
 ### Claude Code
 

@@ -188,7 +188,7 @@ export class SparqlMcpServer {
 
     // Only add sources parameter if no default sources are provided
     if (!this.defaultSources) {
-      querySparqlParams.sources = z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) document URLs. The type of each source is detected automatically. Only if you already know the type, you can force it by prefixing the URL with one of exactly these annotations: 'sparql@' for a SPARQL endpoint (e.g. 'sparql@https://example.org/sparql'), 'qpf@' for a Triple Pattern Fragments or Quad Pattern Fragments interface (e.g. 'qpf@https://example.org/fragments'), or 'file@' for a plain RDF document (e.g. 'file@https://example.org/data.ttl'). Any other annotation makes the query fail, so prefer passing the plain URL when in doubt.${additionalSourcesDescription ?? ''}`);
+      querySparqlParams.sources = z.array(z.string()).describe(`List of SPARQL endpoint URLs, TPF interface URLs, or Linked Data (RDF) document URLs. Just pass the plain URL: the type of each source is detected automatically from its hypermedia controls, which covers SPARQL endpoints, Triple Pattern Fragments and Quad Pattern Fragments interfaces, and plain RDF documents alike. Optionally, if the type is already known, it can be forced by prefixing the URL with 'sparql@', 'qpf@' or 'file@' (e.g. 'sparql@https://example.org/sparql'), which skips detection. Only use an annotation you are sure about, as an incorrect one makes the query fail.${additionalSourcesDescription ?? ''}`);
     }
 
     // Add common parameters
