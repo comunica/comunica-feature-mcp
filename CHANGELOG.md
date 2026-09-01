@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="v1.1.0"></a>
+## [v1.1.0](https://github.com/comunica/comunica-feature-mcp/compare/v1.0.1...v1.1.0) - 2026-09-01
+
+### Changed
+* [Handle query timeouts via a supervised worker pool (#4)](https://github.com/comunica/comunica-feature-mcp/commit/4c4b2fa1c81862528435b8a5d179a96546f18a0c)
+
 <a name="v1.0.1"></a>
 ## [v1.0.1](https://github.com/comunica/comunica-feature-mcp/compare/v1.0.0...v1.0.1) - 2026-05-14
 
