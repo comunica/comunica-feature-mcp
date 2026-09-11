@@ -339,8 +339,8 @@ export function exitOnDisconnect(stderr: Writable, grace = SHUTDOWN_GRACE): void
 /**
  * Ask the primary process to replace this worker, but only if it is still busy with the query that timed out.
  *
- * Comunica can not abort a running query, so queries that time out while doing actual work keep consuming CPU,
- * and the only way to reclaim those resources is to replace the whole worker.
+ * Comunica can not abort a query that is computing, so queries that time out while doing actual work keep
+ * consuming CPU, and the only way to reclaim those resources is to replace the whole worker.
  * Queries that time out while waiting on a slow source leave nothing behind,
  * in which case replacing the worker would needlessly break the connections of other clients.
  * @param stderr The stream to write log messages to.

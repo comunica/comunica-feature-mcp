@@ -190,6 +190,7 @@ describe('SparqlMcpServer', () => {
         ctx,
       );
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org' }],
       });
       expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
@@ -276,6 +277,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org/sparql', type: 'sparql' }],
       });
     });
@@ -299,6 +301,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [
           { value: 'http://ex.org/sparql', type: 'sparql' },
           { value: 'http://plain.org' },
@@ -319,6 +322,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org/fragments', type: 'qpf' }],
       });
     });
@@ -348,6 +352,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org' }],
       });
       expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
@@ -382,6 +387,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{
           type: 'serialized',
           value: '<http://example.org/s> <http://example.org/p> <http://example.org/o>.',
@@ -408,6 +414,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{
           type: 'serialized',
           value: '<s> <p> <o>.',
@@ -433,6 +440,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{
           type: 'serialized',
           value: '<http://example.org/s> <http://example.org/p> <http://example.org/o> .',
@@ -665,6 +673,197 @@ describe('SparqlMcpServer', () => {
       const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
 
       expect(result.content[1].text).toContain('results can be incomplete');
+    });
+  });
+
+  describe('with a maximum result size', () => {
+    let ctx: Context<FastMCPSessionAuth>;
+
+    beforeEach(() => {
+      ctx = <any> { streamContent: jest.fn() };
+    });
+
+    function createServer(options: ISparqlMcpServerOptions): any {
+      toolExecuteCallbacks = [];
+      new SparqlMcpServer(
+        'http',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+        undefined,
+        undefined,
+        undefined,
+        options,
+      );
+      return toolExecuteCallbacks[0];
+    }
+
+    function metadataOf(result: any): any {
+      return JSON.parse(/Query metadata: (?<json>\{.*\})\./u.exec(result.content[1].text)!.groups!.json);
+    }
+
+    it('should return small results unchanged', async() => {
+      const execute = createServer({ maxResultBytes: 1_000 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.content[0].text).toBe('[\n{"a":"1"}\n]\n');
+      expect(metadataOf(result)).toMatchObject({ results: 1, empty: false });
+      expect(metadataOf(result).truncated).toBeUndefined();
+    });
+
+    it('should truncate bindings into a valid JSON array', async() => {
+      const execute = createServer({ maxResultBytes: 20 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', ',\n{"a":"2"}', ',\n{"a":"3"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      const text: string = result.content[0].text;
+      expect(() => JSON.parse(text)).not.toThrow();
+      // The chunk that crossed the limit is dropped back to the last complete line
+      expect(JSON.parse(text)).toEqual([{ a: '1' }]);
+      expect(metadataOf(result)).toMatchObject({ truncated: true, empty: false });
+      // A partial result can not be counted, as its wrapping lines were never emitted
+      expect(metadataOf(result).results).toBeUndefined();
+      expect(result.content[1].text).toContain('use LIMIT and OFFSET');
+    });
+
+    it('should truncate quads at their last complete line', async() => {
+      const execute = createServer({ maxResultBytes: 20 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'quads' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '<a> <b> <c>.\n', '<d> <e> <f>.\n', '<g> <h> <i>.\n' ]),
+      });
+
+      const result = await execute({ query: 'CONSTRUCT {} WHERE {}', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.content[0].text).toBe('<a> <b> <c>.\n<d> <e> <f>.');
+      expect(metadataOf(result)).toMatchObject({ truncated: true });
+    });
+
+    it('should handle truncation before any complete line was emitted', async() => {
+      const execute = createServer({ maxResultBytes: 1 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(JSON.parse(result.content[0].text)).toEqual([]);
+      expect(metadataOf(result)).toMatchObject({ truncated: true, empty: true });
+    });
+
+    it('should not truncate when the limit is disabled', async() => {
+      const execute = createServer({ maxResultBytes: 0 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', ',\n{"a":"2"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(JSON.parse(result.content[0].text)).toHaveLength(2);
+      expect(metadataOf(result).truncated).toBeUndefined();
+    });
+
+    it('should resolve when destroying the stream surfaces as an error', async() => {
+      const execute = createServer({ maxResultBytes: 5 });
+      const data = Readable.from([ '[', '\n{"a":"1"}', '\n{"a":"2"}' ]);
+      // Some streams report being destroyed mid-flight as an error instead of ending quietly
+      data.destroy = <any> (() => data.emit('error', new Error('Premature close')));
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.isError).toBeUndefined();
+      expect(metadataOf(result)).toMatchObject({ truncated: true });
+    });
+  });
+
+  describe('error reporting', () => {
+    let ctx: Context<FastMCPSessionAuth>;
+    let toolExecuteCallback: any;
+
+    beforeEach(() => {
+      ctx = <any> { streamContent: jest.fn() };
+      toolExecuteCallback = toolExecuteCallbacks[0];
+    });
+
+    async function failWith(error: any): Promise<string> {
+      mockQueryEngine.query.mockRejectedValue(error);
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+      expect(result.isError).toBe(true);
+      return result.content[0].text;
+    }
+
+    it('should report errors emitted by the result stream', async() => {
+      const data = new Readable({ read() {
+        this.destroy(new Error('Connection reset while reading results'));
+      } });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data });
+
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Query failed: Connection reset while reading results');
+    });
+
+    it('should unwrap the causes of an error', async() => {
+      const error = new Error('fetch failed');
+      error.cause = new Error('getaddrinfo ENOTFOUND example.invalid');
+
+      await expect(failWith(error)).resolves
+        .toBe('Query failed: fetch failed: getaddrinfo ENOTFOUND example.invalid');
+    });
+
+    it('should not repeat identical causes', async() => {
+      const error = new Error('fetch failed');
+      error.cause = new Error('fetch failed');
+
+      await expect(failWith(error)).resolves.toBe('Query failed: fetch failed');
+    });
+
+    it('should stop unwrapping causes after a bounded depth', async() => {
+      const error = new Error('level-0');
+      let current: any = error;
+      for (let i = 1; i < 10; i++) {
+        current.cause = new Error(`level-${i}`);
+        current = current.cause;
+      }
+
+      const text = await failWith(error);
+
+      expect(text).toContain('level-4');
+      expect(text).not.toContain('level-5');
+    });
+
+    it('should omit HTML error pages', async() => {
+      const html = `<!DOCTYPE html><html><body>${'x'.repeat(5_000)}</body></html>`;
+
+      await expect(failWith(new Error(`Invalid response from https://ex.org (HTTP status 503):\n${html}`))).resolves
+        .toBe('Query failed: Invalid response from https://ex.org (HTTP status 503): (HTML error page omitted)');
+    });
+
+    it('should truncate very long errors', async() => {
+      const text = await failWith(new Error('e'.repeat(5_000)));
+
+      expect(text).toContain('… (truncated)');
+      expect(text.length).toBeLessThan(1_100);
+    });
+
+    it('should handle errors without a message', async() => {
+      await expect(failWith('just a string')).resolves.toBe('Query failed: just a string');
     });
   });
 
@@ -1122,6 +1321,7 @@ describe('SparqlMcpServer', () => {
       await toolExecuteCallback({ query: 'SELECT * WHERE { ?s ?p ?o }' }, ctx);
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [
           { value: 'http://default.org/sparql' },
           { value: '/path/to/data.ttl', type: 'file' },
