@@ -269,7 +269,7 @@ export class SparqlMcpServer {
    * @param sources The sources the query was executed over.
    * @param resultType The type of the query result.
    * @param bytes The number of bytes of the serialized results.
-   * @param newlines The number of newlines within the serialized results.
+   * @param newlines The number of newlines within the serialized results, used to count bindings.
    * @param elapsed The query execution time in milliseconds.
    * @returns A single line describing the results.
    */
@@ -282,12 +282,11 @@ export class SparqlMcpServer {
   ): string {
     const summary: Record<string, any> = { resultType };
 
-    // Both line-based serializers emit one line per result,
-    // where the bindings serializer additionally wraps them in a JSON array.
+    // The bindings serializer emits one line per result, wrapped in a JSON array.
+    // Quads are deliberately not counted: the TriG serializer groups all objects of a subject
+    // onto a single line, so counting lines would report fewer quads than were actually returned.
     if (resultType === 'bindings') {
       summary.results = Math.max(newlines - 2, 0);
-    } else if (resultType === 'quads') {
-      summary.results = newlines;
     }
     summary.empty = summary.results === undefined ? bytes === 0 : summary.results === 0;
     summary.elapsedMs = elapsed;

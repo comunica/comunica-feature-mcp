@@ -58,8 +58,9 @@ export function runCli(
       .option('timeout', {
         alias: 't',
         type: 'number',
-        default: 60_000,
-        description: 'Maximum query execution time in milliseconds (0 to disable)',
+        default: 30_000,
+        description: 'Maximum query execution time in milliseconds, ' +
+          'which should stay below the request timeout of the MCP client (0 to disable)',
       })
       .example([
         [ '$0 --mode stdio', 'Start MCP server in stdio mode without default sources' ],

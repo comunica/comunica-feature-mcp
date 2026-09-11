@@ -33,8 +33,9 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
       .option('timeout', {
         alias: 't',
         type: 'number',
-        default: 60_000,
-        description: 'Maximum query execution time in milliseconds (0 to disable)',
+        default: 30_000,
+        description: 'Maximum query execution time in milliseconds, ' +
+          'which should stay below the request timeout of the MCP client (0 to disable)',
       })
       .example([
         [ '$0 --mode http --port 3000', 'Start MCP server in HTTP mode on port 3000 with default IDP' ],

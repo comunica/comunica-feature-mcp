@@ -593,15 +593,26 @@ describe('SparqlMcpServer', () => {
       expect(metadataOf(result)).toMatchObject({ resultType: 'bindings', results: 0, empty: true });
     });
 
-    it('should report the number of quads', async() => {
+    it('should not count quads, as the serializer groups them per subject', async() => {
       mockQueryEngine.query.mockResolvedValue({ resultType: 'quads' });
+      // Six quads, which the TriG serializer groups onto two lines
       mockQueryEngine.resultToString.mockResolvedValue({
-        data: Readable.from([ '<a> <b> <c>.\n', '<d> <e> <f>.\n' ]),
+        data: Readable.from([ '<a> <p> "1", "2", "3".\n', '<b> <p> "4", "5", "6".\n' ]),
       });
 
       const result = await toolExecuteCallback({ query: 'CONSTRUCT {} WHERE {}', sources: [ 'http://ex.org' ]}, ctx);
 
-      expect(metadataOf(result)).toMatchObject({ resultType: 'quads', results: 2, empty: false });
+      expect(metadataOf(result)).toMatchObject({ resultType: 'quads', empty: false });
+      expect(metadataOf(result).results).toBeUndefined();
+    });
+
+    it('should report an empty quads result as empty', async() => {
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'quads' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data: Readable.from([ '' ]) });
+
+      const result = await toolExecuteCallback({ query: 'CONSTRUCT {} WHERE {}', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(metadataOf(result)).toMatchObject({ resultType: 'quads', empty: true });
     });
 
     it('should determine emptiness by size for results without a line-based count', async() => {

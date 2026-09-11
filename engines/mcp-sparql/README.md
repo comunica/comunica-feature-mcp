@@ -226,8 +226,12 @@ $ comunica-mcp-sparql --mode http --port 3123
 
 SPARQL queries can take arbitrarily long, for example when they are executed over large or slow sources.
 To make sure that an agent never waits indefinitely, queries are aborted after `--timeout` milliseconds
-(60 seconds by default, `--timeout 0` disables this), after which the agent receives an error
+(30 seconds by default, `--timeout 0` disables this), after which the agent receives an error
 that invites it to refine its query.
+
+Keep this below the request timeout of the MCP client, otherwise the client gives up first
+and the agent sees a bare transport timeout instead of the message explaining what to do about it.
+The default of the [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) is 60 seconds.
 
 ```bash
 $ comunica-mcp-sparql --mode http --port 3123 --timeout 300000
