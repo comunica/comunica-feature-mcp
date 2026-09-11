@@ -28,6 +28,21 @@ export const HEARTBEAT_INTERVAL = 1_000;
  */
 export const MIN_UNRESPONSIVE_TIMEOUT = 30_000;
 
+/**
+ * The time in milliseconds a worker is given to finish its pending responses before it is terminated.
+ */
+export const SHUTDOWN_GRACE = 10_000;
+
+/**
+ * The time in milliseconds over which the CPU usage of a worker is sampled after a query timed out.
+ */
+export const CPU_SAMPLE_WINDOW = 2_000;
+
+/**
+ * The fraction of a CPU core a worker must still be using after a query timed out for it to be replaced.
+ */
+export const RUNAWAY_CPU_THRESHOLD = 0.25;
+
 export interface IWorkerPoolArgs {
   /**
    * The number of workers that must be kept alive at all times.
@@ -124,7 +139,7 @@ export class WorkerPool {
     this.checkInterval = args.checkInterval ?? HEARTBEAT_INTERVAL;
     this.healthyUptime = args.healthyUptime ?? 5_000;
     this.maxRapidRestarts = args.maxRapidRestarts ?? 5;
-    this.shutdownGrace = args.shutdownGrace ?? 10_000;
+    this.shutdownGrace = args.shutdownGrace ?? SHUTDOWN_GRACE;
     this.exit = args.exit ?? (code => process.exit(code));
   }
 
@@ -259,7 +274,8 @@ export class WorkerPool {
     if (state && !state.terminated && Date.now() - state.startedAt < this.healthyUptime) {
       this.rapidRestarts++;
       if (this.rapidRestarts >= this.maxRapidRestarts) {
-        this.stderr.write(`Worker ${worker.process.pid} died (${signal ?? code}) during startup, ${this.rapidRestarts} times in a row. Giving up.\n`);
+        this.stderr.write(`Worker ${worker.process.pid} died (${signal ?? code}) during startup, ${this.rapidRestarts} times in a row. Giving up.
+Workers that fail this early usually can not listen on the requested port, because another process is already using it.\n`);
         this.shuttingDown = true;
         clearInterval(this.checkTimer);
         this.exit(1);
@@ -301,6 +317,62 @@ export class WorkerPool {
       callback?.();
     }, this.shutdownGrace).unref();
   }
+}
+
+/**
+ * Terminate this worker once the primary process stops managing it.
+ *
+ * Workers stay alive after being disconnected, so that they can finish their pending responses.
+ * Without this, a worker that is disconnected while the primary process dies is never terminated,
+ * and keeps running its query indefinitely as an orphaned process.
+ * @param stderr The stream to write log messages to.
+ * @param grace The time in milliseconds the worker may still use to finish its pending responses.
+ */
+export function exitOnDisconnect(stderr: Writable, grace = SHUTDOWN_GRACE): void {
+  process.on('disconnect', () => {
+    stderr.write(`Worker ${process.pid} was disconnected, shutting down within ${grace}ms\n`);
+    // Never keep the worker alive just for this timer, as an idle worker should exit on its own
+    setTimeout(() => process.exit(0), grace).unref();
+  });
+}
+
+/**
+ * Ask the primary process to replace this worker, but only if it is still busy with the query that timed out.
+ *
+ * Comunica can not abort a running query, so queries that time out while doing actual work keep consuming CPU,
+ * and the only way to reclaim those resources is to replace the whole worker.
+ * Queries that time out while waiting on a slow source leave nothing behind,
+ * in which case replacing the worker would needlessly break the connections of other clients.
+ * @param stderr The stream to write log messages to.
+ * @param window The time in milliseconds over which CPU usage is sampled.
+ * @param threshold The fraction of a CPU core above which the worker is considered to be still busy.
+ * @returns If a replacement was requested.
+ */
+export async function requestRecycleIfRunaway(
+  stderr: Writable,
+  window = CPU_SAMPLE_WINDOW,
+  threshold = RUNAWAY_CPU_THRESHOLD,
+): Promise<boolean> {
+  if (!process.send) {
+    return false;
+  }
+
+  const cpuBefore = process.cpuUsage();
+  const timeBefore = Date.now();
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, window);
+  });
+  const cpu = process.cpuUsage(cpuBefore);
+  const elapsed = Math.max(Date.now() - timeBefore, 1) * 1_000;
+  const usage = (cpu.user + cpu.system) / elapsed;
+
+  if (usage < threshold) {
+    stderr.write(`Worker ${process.pid} is idle again after the timeout (${Math.round(usage * 100)}% CPU), keeping it\n`);
+    return false;
+  }
+
+  stderr.write(`Worker ${process.pid} is still busy after the timeout (${Math.round(usage * 100)}% CPU), asking for a replacement\n`);
+  return requestRecycle();
 }
 
 /**

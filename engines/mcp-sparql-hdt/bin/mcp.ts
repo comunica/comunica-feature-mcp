@@ -2,5 +2,10 @@
 import { QueryEngine } from '@comunica/query-sparql-hdt';
 import { runCli } from '@comunica/utils-mcp';
 
-// eslint-disable-next-line ts/no-require-imports,ts/no-var-requires,import/extensions
-runCli(() => new QueryEngine(), require('../package.json').version);
+runCli(
+  () => new QueryEngine(),
+  // eslint-disable-next-line ts/no-require-imports,ts/no-var-requires,import/extensions
+  require('../package.json').version,
+  undefined,
+  ` This server can also query local HDT files, by passing their path prefixed with 'hdt@'.`,
+);
