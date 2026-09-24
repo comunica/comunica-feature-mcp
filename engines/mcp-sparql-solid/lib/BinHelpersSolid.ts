@@ -37,6 +37,12 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
         description: 'Maximum query execution time in milliseconds, ' +
           'which should stay below the request timeout of the MCP client (0 to disable)',
       })
+      .option('max-result-bytes', {
+        type: 'number',
+        default: 50_000,
+        description: 'Maximum number of characters of results returned per query, ' +
+          'so that one unselective query can not fill up the context of an agent (0 to disable)',
+      })
       .example([
         [ '$0 --mode http --port 3000', 'Start MCP server in HTTP mode on port 3000 with default IDP' ],
         [ '$0 --mode http --idp https://solidcommunity.net/', 'Start with a specific identity provider' ],
@@ -84,7 +90,7 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
       defaultSources,
       customContext,
       ` If you want to query the WebID or pod of the user, you can pass the URL ${session?.info.webId}.`,
-      { queryTimeout: argv.timeout },
+      { queryTimeout: argv.timeout, maxResultBytes: argv.maxResultBytes },
     );
 
     // Handle graceful shutdown

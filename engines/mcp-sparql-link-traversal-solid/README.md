@@ -180,6 +180,20 @@ so a timed out query keeps consuming CPU and memory until it terminates by itsel
 Contrary to the other Comunica MCP servers, this server does not execute queries inside replaceable worker
 processes, as every new worker would require the user to interactively log in again.
 
+## Result size
+
+A single unselective query can return more results than fit in the context of the agent that asked for
+them, which leaves the agent with no room to act on what it received. Results are therefore cut off after
+`--max-result-bytes` characters (50 000 by default, `--max-result-bytes 0` disables this):
+
+```bash
+$ comunica-mcp-sparql-link-traversal-solid --mode http --port 3123 --max-result-bytes 200000
+```
+
+Results are cut off at their last complete line, so they stay parseable, and the metadata line reports
+`"truncated": true` together with the number of characters that were returned.
+Agents are pointed at `LIMIT` and `OFFSET` to read large result sets in smaller parts.
+
 ## Query metadata
 
 Every successful query is answered with the results, followed by a single line of metadata:
@@ -189,6 +203,7 @@ Query metadata: {"resultType":"bindings","results":3,"empty":false,"elapsedMs":4
 ```
 
 This lets agents tell an empty result apart from a failed query, and shows which sources were queried.
+Truncated results additionally carry `"truncated": true` and their size in characters.
 Note that federated queries can return incomplete results without an error when one of the sources is unavailable.
 
 ## Available Tools

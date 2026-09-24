@@ -62,6 +62,12 @@ export function runCli(
         description: 'Maximum query execution time in milliseconds, ' +
           'which should stay below the request timeout of the MCP client (0 to disable)',
       })
+      .option('max-result-bytes', {
+        type: 'number',
+        default: 50_000,
+        description: 'Maximum number of characters of results returned per query, ' +
+          'so that one unselective query can not fill up the context of an agent (0 to disable)',
+      })
       .example([
         [ '$0 --mode stdio', 'Start MCP server in stdio mode without default sources' ],
         [ '$0 --mode http --port 3000', 'Start MCP server in HTTP mode on port 3000' ],
@@ -111,6 +117,7 @@ export function runCli(
       additionalSourcesDescription,
       {
         queryTimeout: argv.timeout,
+        maxResultBytes: argv.maxResultBytes,
         // Comunica can not abort a running query, so the only way to reclaim the resources of a query
         // that keeps running after its timeout is to let the primary process replace this worker.
         // Queries that timed out while waiting on a slow source leave nothing behind,
