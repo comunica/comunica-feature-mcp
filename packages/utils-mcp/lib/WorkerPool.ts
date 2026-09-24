@@ -339,8 +339,8 @@ export function exitOnDisconnect(stderr: Writable, grace = SHUTDOWN_GRACE): void
 /**
  * Ask the primary process to replace this worker, but only if it is still busy with the query that timed out.
  *
- * Comunica can not abort a running query, so queries that time out while doing actual work keep consuming CPU,
- * and the only way to reclaim those resources is to replace the whole worker.
+ * Comunica can not abort a query that is computing, so queries that time out while doing actual work keep
+ * consuming CPU, and the only way to reclaim those resources is to replace the whole worker.
  * Queries that time out while waiting on a slow source leave nothing behind,
  * in which case replacing the worker would needlessly break the connections of other clients.
  * @param stderr The stream to write log messages to.
@@ -373,6 +373,28 @@ export async function requestRecycleIfRunaway(
 
   stderr.write(`Worker ${process.pid} is still busy after the timeout (${Math.round(usage * 100)}% CPU), asking for a replacement\n`);
   return requestRecycle();
+}
+
+/**
+ * Keep this process alive when requests of cancelled queries surface as uncaught abort errors.
+ *
+ * Pending HTTP requests of a query are aborted when it times out or fails. A response that was already
+ * abandoned by then, such as one that fetch-sparql-endpoint rejected for its content type without closing it,
+ * has nobody left listening for its errors, so aborting it surfaces as an uncaught AbortError.
+ * That would otherwise crash the whole process, taking every other query that runs in it along.
+ * Any other uncaught error still terminates the process, as it did before.
+ * @param stderr The stream to write log messages to.
+ * @param exit Invoked to terminate the process upon any other uncaught error.
+ */
+export function ignoreAbortErrors(stderr: Writable, exit: (code: number) => void = code => process.exit(code)): void {
+  process.on('uncaughtException', (error: Error) => {
+    if (error?.name === 'AbortError') {
+      stderr.write(`Ignored an aborted request of a cancelled query: ${error.message}\n`);
+      return;
+    }
+    stderr.write(`${error?.stack ?? String(error)}\n`);
+    exit(1);
+  });
 }
 
 /**

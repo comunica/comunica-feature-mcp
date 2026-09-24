@@ -7,6 +7,7 @@ import { hideBin } from 'yargs/helpers';
 import { SparqlMcpServer } from './SparqlMcpServer';
 import {
   exitOnDisconnect,
+  ignoreAbortErrors,
   MIN_UNRESPONSIVE_TIMEOUT,
   requestRecycleIfRunaway,
   startHeartbeat,
@@ -102,6 +103,8 @@ export function runCli(
     // Both are a no-op in stdio mode, where there is no primary process.
     startHeartbeat();
     exitOnDisconnect(process.stderr);
+    // Aborting the requests of a cancelled query must never take down the other queries in this process
+    ignoreAbortErrors(process.stderr);
 
     // Extract positional arguments as default sources
     const defaultSources: string[] | undefined = argv._.length > 0 ? argv._.map(String) : undefined;
@@ -118,8 +121,9 @@ export function runCli(
       {
         queryTimeout: argv.timeout,
         maxResultBytes: argv.maxResultBytes,
-        // Comunica can not abort a running query, so the only way to reclaim the resources of a query
-        // that keeps running after its timeout is to let the primary process replace this worker.
+        // Pending HTTP requests of a timed out query are aborted, but Comunica can not abort the query
+        // itself, so the only way to reclaim the CPU of a query that keeps computing after its timeout
+        // is to let the primary process replace this worker.
         // Queries that timed out while waiting on a slow source leave nothing behind,
         // so those must not disrupt the connections of other clients.
         onQueryTimeout: () => {

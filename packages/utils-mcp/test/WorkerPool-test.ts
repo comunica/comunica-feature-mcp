@@ -5,6 +5,7 @@ import {
   CPU_SAMPLE_WINDOW,
   exitOnDisconnect,
   HEARTBEAT_INTERVAL,
+  ignoreAbortErrors,
   MESSAGE_HEARTBEAT,
   MESSAGE_RECYCLE,
   requestRecycle,
@@ -599,5 +600,77 @@ describe('requestRecycleIfRunaway', () => {
 
     await expect(promise).resolves.toBe(false);
     jest.useRealTimers();
+  });
+});
+
+describe('ignoreAbortErrors', () => {
+  let stderr: Writable;
+  let writes: string[];
+  let onSpy: jest.SpyInstance;
+  let handler: (error: any) => void;
+
+  beforeEach(() => {
+    writes = [];
+    stderr = new Writable({
+      write(chunk: any, encoding: any, callback: any) {
+        writes.push(chunk.toString());
+        callback();
+      },
+    });
+    // Capture the listener instead of registering it, so no real uncaught exception is involved
+    onSpy = jest.spyOn(process, 'on').mockImplementation(<any> ((event: string, listener: any) => {
+      handler = listener;
+      return process;
+    }));
+  });
+
+  afterEach(() => {
+    onSpy.mockRestore();
+  });
+
+  it('should listen for uncaught exceptions', () => {
+    ignoreAbortErrors(stderr, jest.fn());
+
+    expect(onSpy).toHaveBeenCalledWith('uncaughtException', expect.any(Function));
+  });
+
+  it('should keep the process alive on abort errors', () => {
+    const exit = jest.fn();
+    ignoreAbortErrors(stderr, exit);
+
+    handler(new DOMException('This operation was aborted', 'AbortError'));
+
+    expect(exit).not.toHaveBeenCalled();
+    expect(writes.join('')).toContain('Ignored an aborted request of a cancelled query: This operation was aborted');
+  });
+
+  it('should terminate the process on any other error', () => {
+    const exit = jest.fn();
+    ignoreAbortErrors(stderr, exit);
+
+    handler(new Error('Something else went wrong'));
+
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(writes.join('')).toContain('Error: Something else went wrong');
+  });
+
+  it('should terminate the process on thrown values that are not errors', () => {
+    const exit = jest.fn();
+    ignoreAbortErrors(stderr, exit);
+
+    handler('just a string');
+
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(writes.join('')).toContain('just a string');
+  });
+
+  it('should terminate the process through process.exit by default', () => {
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(<any> jest.fn());
+    ignoreAbortErrors(stderr);
+
+    handler(new Error('Something else went wrong'));
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
   });
 });

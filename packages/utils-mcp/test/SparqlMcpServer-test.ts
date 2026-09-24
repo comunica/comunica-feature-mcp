@@ -190,6 +190,7 @@ describe('SparqlMcpServer', () => {
         ctx,
       );
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org' }],
       });
       expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
@@ -276,6 +277,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org/sparql', type: 'sparql' }],
       });
     });
@@ -299,6 +301,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [
           { value: 'http://ex.org/sparql', type: 'sparql' },
           { value: 'http://plain.org' },
@@ -319,6 +322,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org/fragments', type: 'qpf' }],
       });
     });
@@ -348,6 +352,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT *', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{ value: 'http://ex.org' }],
       });
       expect(result.content[0]).toEqual({ type: 'text', text: 'RESULT' });
@@ -382,6 +387,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{
           type: 'serialized',
           value: '<http://example.org/s> <http://example.org/p> <http://example.org/o>.',
@@ -408,6 +414,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{
           type: 'serialized',
           value: '<s> <p> <o>.',
@@ -433,6 +440,7 @@ describe('SparqlMcpServer', () => {
       );
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [{
           type: 'serialized',
           value: '<http://example.org/s> <http://example.org/p> <http://example.org/o> .',
@@ -1259,6 +1267,7 @@ describe('SparqlMcpServer', () => {
       await toolExecuteCallback({ query: 'SELECT * WHERE { ?s ?p ?o }' }, ctx);
 
       expect(mockQueryEngine.query).toHaveBeenCalledWith('SELECT * WHERE { ?s ?p ?o }', {
+        httpAbortSignal: expect.any(AbortSignal),
         sources: [
           { value: 'http://default.org/sparql' },
           { value: '/path/to/data.ttl', type: 'file' },
