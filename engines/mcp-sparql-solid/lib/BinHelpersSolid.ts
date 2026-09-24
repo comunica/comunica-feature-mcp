@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-process-exit */
 import type { QueryEngineBase } from '@comunica/actor-init-query';
-import { SparqlMcpServer } from '@comunica/utils-mcp';
+import { ignoreAbortErrors, SparqlMcpServer } from '@comunica/utils-mcp';
 import type { Session } from '@rubensworks/solid-client-authn-isomorphic';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -77,6 +77,10 @@ export function runCliSolid(queryEngine: QueryEngineBase, version: string): void
     const customContext = session ?
         { '@comunica/actor-http-inrupt-solid-client-authn:session': session } :
       undefined;
+
+    // Aborting the requests of a cancelled query must never take down this process,
+    // as restarting it would require the user to interactively log in again
+    ignoreAbortErrors(process.stderr);
 
     // Contrary to the non-Solid MCP servers, this server is not run inside worker processes,
     // as restarting a worker would require the user to interactively log in again.

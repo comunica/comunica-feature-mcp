@@ -10,8 +10,8 @@ export interface ISparqlMcpServerOptions {
   /**
    * The maximum time in milliseconds a query may take before it is aborted. A value of 0 disables the timeout.
    *
-   * Note that Comunica offers no way to abort a running query,
-   * so timed out queries keep consuming resources in the background until the process is replaced.
+   * Pending HTTP requests are aborted when this fires, but Comunica offers no way to abort the query itself,
+   * so a query that is busy computing keeps consuming CPU in the background until the process is replaced.
    */
   queryTimeout?: number;
   /**
@@ -398,6 +398,8 @@ or increasing the timeout of the MCP server.`));
     let truncated = false;
     const startTime = Date.now();
     const maxResultBytes = this.options.maxResultBytes ?? 0;
+    // Lets us stop the HTTP requests of a query that timed out or failed
+    const abortController = new AbortController();
 
     try {
       const executeInner = async(): Promise<string> => {
@@ -406,7 +408,12 @@ or increasing the timeout of the MCP server.`));
         // Chained instead of collected, so that memory does not grow with the number of chunks
         let streamed: Promise<any> = Promise.resolve();
         // Merge custom context with provided query context
-        const mergedContext = { sources, ...this.customContext, ...queryContext };
+        const mergedContext = {
+          sources,
+          httpAbortSignal: abortController.signal,
+          ...this.customContext,
+          ...queryContext,
+        };
         const queryResult = await this.queryEngine.query(query, mergedContext);
         resultType = queryResult.resultType ?? resultType;
         const { data } = await this.queryEngine.resultToString(queryResult);
@@ -462,6 +469,7 @@ or increasing the timeout of the MCP server.`));
       };
     } catch (error: any) {
       // Make sure that a timed out or failed query stops consuming resources
+      abortController.abort();
       resultStream?.destroy();
 
       // Log query failure
