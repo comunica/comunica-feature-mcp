@@ -668,6 +668,143 @@ describe('SparqlMcpServer', () => {
     });
   });
 
+  describe('with a maximum result size', () => {
+    let ctx: Context<FastMCPSessionAuth>;
+
+    beforeEach(() => {
+      ctx = <any> { streamContent: jest.fn() };
+    });
+
+    function createServer(options: ISparqlMcpServerOptions): any {
+      toolExecuteCallbacks = [];
+      new SparqlMcpServer(
+        'http',
+        3000,
+        <QueryEngineBase> <unknown> mockQueryEngine,
+        '1.2.3',
+        mockStderr,
+        undefined,
+        undefined,
+        undefined,
+        options,
+      );
+      return toolExecuteCallbacks[0];
+    }
+
+    function metadataOf(result: any): any {
+      return JSON.parse(/Query metadata: (?<json>\{.*\})\./u.exec(result.content[1].text)!.groups!.json);
+    }
+
+    it('should return small results unchanged', async() => {
+      const execute = createServer({ maxResultBytes: 1_000 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.content[0].text).toBe('[\n{"a":"1"}\n]\n');
+      expect(metadataOf(result)).toMatchObject({ results: 1, empty: false });
+      expect(metadataOf(result).truncated).toBeUndefined();
+    });
+
+    it('should truncate bindings into a valid JSON array', async() => {
+      const execute = createServer({ maxResultBytes: 20 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', ',\n{"a":"2"}', ',\n{"a":"3"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      const text: string = result.content[0].text;
+      expect(() => JSON.parse(text)).not.toThrow();
+      // The chunk that crossed the limit is dropped back to the last complete line
+      expect(JSON.parse(text)).toEqual([{ a: '1' }]);
+      expect(metadataOf(result)).toMatchObject({ truncated: true, empty: false });
+      // A partial result can not be counted, as its wrapping lines were never emitted
+      expect(metadataOf(result).results).toBeUndefined();
+      expect(result.content[1].text).toContain('use LIMIT and OFFSET');
+    });
+
+    it('should truncate quads at their last complete line', async() => {
+      const execute = createServer({ maxResultBytes: 20 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'quads' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '<a> <b> <c>.\n', '<d> <e> <f>.\n', '<g> <h> <i>.\n' ]),
+      });
+
+      const result = await execute({ query: 'CONSTRUCT {} WHERE {}', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.content[0].text).toBe('<a> <b> <c>.\n<d> <e> <f>.');
+      expect(metadataOf(result)).toMatchObject({ truncated: true });
+    });
+
+    it('should handle truncation before any complete line was emitted', async() => {
+      const execute = createServer({ maxResultBytes: 1 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(JSON.parse(result.content[0].text)).toEqual([]);
+      expect(metadataOf(result)).toMatchObject({ truncated: true, empty: true });
+    });
+
+    it('should not truncate when the limit is disabled', async() => {
+      const execute = createServer({ maxResultBytes: 0 });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({
+        data: Readable.from([ '[', '\n{"a":"1"}', ',\n{"a":"2"}', '\n]\n' ]),
+      });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(JSON.parse(result.content[0].text)).toHaveLength(2);
+      expect(metadataOf(result).truncated).toBeUndefined();
+    });
+
+    it('should resolve when destroying the stream surfaces as an error', async() => {
+      const execute = createServer({ maxResultBytes: 5 });
+      const data = Readable.from([ '[', '\n{"a":"1"}', '\n{"a":"2"}' ]);
+      // Some streams report being destroyed mid-flight as an error instead of ending quietly
+      data.destroy = <any> (() => data.emit('error', new Error('Premature close')));
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data });
+
+      const result = await execute({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.isError).toBeUndefined();
+      expect(metadataOf(result)).toMatchObject({ truncated: true });
+    });
+  });
+
+  describe('error reporting', () => {
+    let ctx: Context<FastMCPSessionAuth>;
+    let toolExecuteCallback: any;
+
+    beforeEach(() => {
+      ctx = <any> { streamContent: jest.fn() };
+      toolExecuteCallback = toolExecuteCallbacks[0];
+    });
+
+    it('should report errors emitted by the result stream', async() => {
+      const data = new Readable({ read() {
+        this.destroy(new Error('Connection reset while reading results'));
+      } });
+      mockQueryEngine.query.mockResolvedValue({ resultType: 'bindings' });
+      mockQueryEngine.resultToString.mockResolvedValue({ data });
+
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe('Query failed: Connection reset while reading results');
+    });
+  });
+
   describe('parseSourceString', () => {
     it('should parse normal URL without type prefix', () => {
       const result = (<any> server).parseSourceString('http://example.org/');

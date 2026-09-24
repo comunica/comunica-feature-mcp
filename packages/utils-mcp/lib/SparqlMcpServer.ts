@@ -15,6 +15,13 @@ export interface ISparqlMcpServerOptions {
    */
   queryTimeout?: number;
   /**
+   * The maximum number of characters of results that are returned. A value of 0 disables this limit.
+   *
+   * Without a limit, a single unselective query can return results that no longer fit
+   * in the context of the agent that asked for them.
+   */
+  maxResultBytes?: number;
+  /**
    * Invoked when a query exceeded {@link ISparqlMcpServerOptions.queryTimeout}.
    */
   onQueryTimeout?: () => void;
@@ -264,36 +271,73 @@ export class SparqlMcpServer {
   }
 
   /**
+   * Cut off results that exceeded the maximum result size at their last complete line.
+   * @param results The serialized results, of which the last line can be incomplete.
+   * @param resultType The type of the query result.
+   * @returns The results up to their last complete line.
+   */
+  protected truncateResults(results: string, resultType: string): string {
+    const lastNewline = results.lastIndexOf('\n');
+    let trimmed = lastNewline === -1 ? '' : results.slice(0, lastNewline);
+
+    if (resultType !== 'bindings') {
+      return trimmed;
+    }
+
+    // The bindings serializer wraps its results in a JSON array, which must still be closed here,
+    // without the comma that separated the last kept result from the one that was dropped
+    if (trimmed.endsWith(',')) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    return `${trimmed === '' ? '[' : trimmed}\n]\n`;
+  }
+
+  /**
    * Summarize a query result, so that agents can tell an empty result apart from a failed query,
    * and know which sources the results actually came from.
-   * @param sources The sources the query was executed over.
-   * @param resultType The type of the query result.
-   * @param bytes The number of bytes of the serialized results.
-   * @param newlines The number of newlines within the serialized results, used to count bindings.
-   * @param elapsed The query execution time in milliseconds.
+   * @param args The result to describe.
+   * @param args.sources The sources the query was executed over.
+   * @param args.resultType The type of the query result.
+   * @param args.bytes The number of characters of the serialized results.
+   * @param args.newlines The number of newlines within the serialized results, used to count bindings.
+   * @param args.truncated If the results were cut off because they exceeded the maximum result size.
+   * @param args.elapsed The query execution time in milliseconds.
    * @returns A single line describing the results.
    */
-  protected describeResults(
-    sources: IQuerySourceUnidentifiedExpanded[],
-    resultType: string,
-    bytes: number,
-    newlines: number,
-    elapsed: number,
-  ): string {
-    const summary: Record<string, any> = { resultType };
+  protected describeResults(args: {
+    sources: IQuerySourceUnidentifiedExpanded[];
+    resultType: string;
+    bytes: number;
+    newlines: number;
+    truncated: boolean;
+    elapsed: number;
+  }): string {
+    const summary: Record<string, any> = { resultType: args.resultType };
 
     // The bindings serializer emits one line per result, wrapped in a JSON array.
     // Quads are deliberately not counted: the TriG serializer groups all objects of a subject
     // onto a single line, so counting lines would report fewer quads than were actually returned.
-    if (resultType === 'bindings') {
-      summary.results = Math.max(newlines - 2, 0);
+    // Truncated results are not counted either, as their wrapping lines were never emitted.
+    if (args.resultType === 'bindings' && !args.truncated) {
+      summary.results = Math.max(args.newlines - 2, 0);
     }
-    summary.empty = summary.results === undefined ? bytes === 0 : summary.results === 0;
-    summary.elapsedMs = elapsed;
-    summary.sources = sources.map(source => this.describeSource(source));
+    if (args.truncated) {
+      summary.truncated = true;
+      summary.bytes = args.bytes;
+      // Results are kept per complete line, so without any line nothing survived the truncation
+      summary.empty = args.newlines === 0;
+    } else {
+      summary.empty = summary.results === undefined ? args.bytes === 0 : summary.results === 0;
+    }
+    summary.elapsedMs = args.elapsed;
+    summary.sources = args.sources.map(source => this.describeSource(source));
 
+    const truncationNote = args.truncated ?
+      ' The results were cut off because they became too large, so they are incomplete; ' +
+      'use LIMIT and OFFSET to read them in smaller parts.' :
+      '';
     return `Query metadata: ${JSON.stringify(summary)}. Note that results can be incomplete without an error \
-when one of multiple sources is unavailable.`;
+when one of multiple sources is unavailable.${truncationNote}`;
   }
 
   /**
@@ -351,11 +395,14 @@ or increasing the timeout of the MCP server.`));
     let resultStream: Readable | undefined;
     let resultType = 'unknown';
     let newlines = 0;
+    let truncated = false;
     const startTime = Date.now();
+    const maxResultBytes = this.options.maxResultBytes ?? 0;
 
     try {
       const executeInner = async(): Promise<string> => {
         const chunks: string[] = [];
+        let bytes = 0;
         // Chained instead of collected, so that memory does not grow with the number of chunks
         let streamed: Promise<any> = Promise.resolve();
         // Merge custom context with provided query context
@@ -365,18 +412,32 @@ or increasing the timeout of the MCP server.`));
         const { data } = await this.queryEngine.resultToString(queryResult);
         resultStream = <Readable> data;
         data.on('data', (chunk: string) => {
+          if (truncated) {
+            return;
+          }
           const text = chunk.toString();
           chunks.push(text);
+          bytes += text.length;
           newlines += this.countNewlines(text);
           streamed = streamed.then(() => context.streamContent({ type: 'text', text }));
+
+          // Stop as soon as the results no longer fit, as an agent can not act on more than this anyway
+          if (maxResultBytes > 0 && bytes >= maxResultBytes) {
+            truncated = true;
+            this.stderr.write(`[Query ${queryId}] Truncated after ${bytes} characters\n`);
+            (<Readable> data).destroy();
+          }
         });
-        await new Promise((resolve, reject) => {
-          data.on('error', reject);
+        await new Promise<void>((resolve, reject) => {
+          // Destroying the stream ends it without an 'end' event, and may surface as an error
+          data.on('error', error => (truncated ? resolve() : reject(error)));
           data.on('end', resolve);
+          data.on('close', resolve);
         });
         await streamed;
 
-        return chunks.join('');
+        const results = chunks.join('');
+        return truncated ? this.truncateResults(results, resultType) : results;
       };
       const results = await this.withQueryTimeout(executeInner(), queryId);
 
@@ -388,7 +449,14 @@ or increasing the timeout of the MCP server.`));
           { type: 'text', text: results },
           {
             type: 'text',
-            text: this.describeResults(sources, resultType, results.length, newlines, Date.now() - startTime),
+            text: this.describeResults({
+              sources,
+              resultType,
+              bytes: results.length,
+              newlines,
+              truncated,
+              elapsed: Date.now() - startTime,
+            }),
           },
         ],
       };
