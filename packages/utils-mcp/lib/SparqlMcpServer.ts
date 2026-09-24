@@ -6,6 +6,16 @@ import type { Context, FastMCPSessionAuth } from 'fastmcp';
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
 
+/**
+ * The maximum number of characters of an error message that is reported back to the client.
+ */
+export const MAX_ERROR_LENGTH = 1_000;
+
+/**
+ * The maximum number of causes that are unwrapped from an error.
+ */
+export const MAX_ERROR_CAUSES = 5;
+
 export interface ISparqlMcpServerOptions {
   /**
    * The maximum time in milliseconds a query may take before it is aborted. A value of 0 disables the timeout.
@@ -293,6 +303,39 @@ export class SparqlMcpServer {
   }
 
   /**
+   * Describe an error in a way that is useful to an agent.
+   *
+   * Query errors can carry the full HTML error page of a source, or wrap the only useful part
+   * inside a chain of causes, neither of which an agent can do anything with as-is.
+   * @param error The error that was thrown.
+   * @returns A single-line description of the error.
+   */
+  protected describeError(error: any): string {
+    // Unwrap the causes, as those carry the actual reason of failures such as 'fetch failed'
+    const messages: string[] = [];
+    let current: any = error;
+    for (let depth = 0; current && depth < MAX_ERROR_CAUSES; depth++) {
+      const message = String(current.message ?? current);
+      if (message && !messages.includes(message)) {
+        messages.push(message);
+      }
+      current = current.cause;
+    }
+    let combined = messages.join(': ');
+
+    // Unavailable sources tend to answer with a full HTML error page, which is of no use to an agent
+    const html = /<!DOCTYPE html|<html[\s>]/iu.exec(combined);
+    if (html) {
+      combined = `${combined.slice(0, html.index).trim()} (HTML error page omitted)`;
+    }
+
+    if (combined.length > MAX_ERROR_LENGTH) {
+      combined = `${combined.slice(0, MAX_ERROR_LENGTH)}… (truncated)`;
+    }
+    return combined;
+  }
+
+  /**
    * Summarize a query result, so that agents can tell an empty result apart from a failed query,
    * and know which sources the results actually came from.
    * @param args The result to describe.
@@ -480,7 +523,7 @@ or increasing the timeout of the MCP server.`));
         content: [
           {
             type: 'text',
-            text: `Query failed: ${error.message}`,
+            text: `Query failed: ${this.describeError(error)}`,
           },
         ],
       };

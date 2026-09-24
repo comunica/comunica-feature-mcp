@@ -799,6 +799,13 @@ describe('SparqlMcpServer', () => {
       toolExecuteCallback = toolExecuteCallbacks[0];
     });
 
+    async function failWith(error: any): Promise<string> {
+      mockQueryEngine.query.mockRejectedValue(error);
+      const result = await toolExecuteCallback({ query: 'SELECT *', sources: [ 'http://ex.org' ]}, ctx);
+      expect(result.isError).toBe(true);
+      return result.content[0].text;
+    }
+
     it('should report errors emitted by the result stream', async() => {
       const data = new Readable({ read() {
         this.destroy(new Error('Connection reset while reading results'));
@@ -810,6 +817,53 @@ describe('SparqlMcpServer', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe('Query failed: Connection reset while reading results');
+    });
+
+    it('should unwrap the causes of an error', async() => {
+      const error = new Error('fetch failed');
+      error.cause = new Error('getaddrinfo ENOTFOUND example.invalid');
+
+      await expect(failWith(error)).resolves
+        .toBe('Query failed: fetch failed: getaddrinfo ENOTFOUND example.invalid');
+    });
+
+    it('should not repeat identical causes', async() => {
+      const error = new Error('fetch failed');
+      error.cause = new Error('fetch failed');
+
+      await expect(failWith(error)).resolves.toBe('Query failed: fetch failed');
+    });
+
+    it('should stop unwrapping causes after a bounded depth', async() => {
+      const error = new Error('level-0');
+      let current: any = error;
+      for (let i = 1; i < 10; i++) {
+        current.cause = new Error(`level-${i}`);
+        current = current.cause;
+      }
+
+      const text = await failWith(error);
+
+      expect(text).toContain('level-4');
+      expect(text).not.toContain('level-5');
+    });
+
+    it('should omit HTML error pages', async() => {
+      const html = `<!DOCTYPE html><html><body>${'x'.repeat(5_000)}</body></html>`;
+
+      await expect(failWith(new Error(`Invalid response from https://ex.org (HTTP status 503):\n${html}`))).resolves
+        .toBe('Query failed: Invalid response from https://ex.org (HTTP status 503): (HTML error page omitted)');
+    });
+
+    it('should truncate very long errors', async() => {
+      const text = await failWith(new Error('e'.repeat(5_000)));
+
+      expect(text).toContain('… (truncated)');
+      expect(text.length).toBeLessThan(1_100);
+    });
+
+    it('should handle errors without a message', async() => {
+      await expect(failWith('just a string')).resolves.toBe('Query failed: just a string');
     });
   });
 
